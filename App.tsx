@@ -1253,14 +1253,13 @@ function App() {
                     if (slot === 'left') {
                         return (
                             <div key={pos} className="absolute left-0 top-0 h-full flex flex-row items-center pl-2 pointer-events-none z-30">
-                                <div className="mr-8 whitespace-nowrap vertical-lr pointer-events-auto">{BadgeComponent}</div>
                                 <div className="pointer-events-auto relative">
                                     {(!isPortrait) && (
                                         // Vertical Hand: Cards stacked top-to-bottom. Upright orientation.
-                                        // vertical={true} in PlayerHand handles the stacking.
                                         <PlayerHand cards={gameState.hands[pos]} position={pos} isFaceUp={false} vertical={true} />
                                     )}
                                 </div>
+                                <div className="ml-8 whitespace-nowrap vertical-lr pointer-events-auto">{BadgeComponent}</div>
                             </div>
                         );
                     }
@@ -1268,12 +1267,12 @@ function App() {
                     if (slot === 'right') {
                         return (
                             <div key={pos} className="absolute right-0 top-0 h-full flex flex-row-reverse items-center pr-2 pointer-events-none z-30">
-                                <div className="ml-8 whitespace-nowrap vertical-lr pointer-events-auto">{BadgeComponent}</div>
                                 <div className="pointer-events-auto relative">
                                     {(!isPortrait) && (
                                         <PlayerHand cards={gameState.hands[pos]} position={pos} isFaceUp={false} vertical={true} />
                                     )}
                                 </div>
+                                <div className="mr-8 whitespace-nowrap vertical-lr pointer-events-auto">{BadgeComponent}</div>
                             </div>
                         );
                     }
