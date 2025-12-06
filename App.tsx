@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-    GameState, GamePhase, PlayerPosition, Bid, PlayerProfile, NetworkMessage, TrickCard, Suit, Card, PlayLog, InteractionType
+    GameState, GamePhase, PlayerPosition, Bid, PlayerProfile, NetworkMessage, Card, InteractionType
 } from './types';
 import {
     generateDeck, shuffleDeck, dealCards,
-    isAuctionFinished, getTrickWinner, calculateHCP
+    calculateHCP, getTrickWinner
 } from './services/bridgeLogic';
 import PlayerHand from './components/PlayerHand';
 import BiddingBox from './components/BiddingBox';
 import AuctionBoard from './components/AuctionBoard';
-import { TEXT, ASSETS, SUIT_SYMBOLS, SUIT_COLORS, RANK_ORDER, SUIT_ORDER, NEXT_TURN, PARTNER, SUIT_COLORS_LIGHT } from './constants';
+import { TEXT, ASSETS, NEXT_TURN, PARTNER, SUIT_COLORS_LIGHT, SUIT_SYMBOLS, SUIT_COLORS } from './constants';
 import CardComponent from './components/Card';
+import { FlyingItemRenderer, FlyingItem } from './components/FlyingItemRenderer';
+import { processBidLogic, processPlayLogic, processReadyLogic, processSurrender } from './services/gameStateReducers';
 
 // Declare PeerJS globally
 declare const Peer: any;
@@ -45,90 +47,6 @@ const INITIAL_STATE: GameState = {
 };
 
 const EMOTES = ['😀', '😂', '😎', '😭', '😡', '🤔'];
-
-interface FlyingItem {
-    id: number;
-    type: InteractionType;
-    fromSlot: string;
-    toSlot: string;
-}
-
-const FlyingItemRenderer: React.FC<{ item: FlyingItem; onComplete: () => void }> = ({ item, onComplete }) => {
-    const [style, setStyle] = useState<React.CSSProperties>({
-        position: 'absolute',
-        opacity: 0,
-        zIndex: 9999,
-        pointerEvents: 'none',
-        transition: 'none'
-    });
-
-    const getCoords = (slot: string) => {
-        if (slot === 'bottom') return { top: '85%', left: '50%' };
-        if (slot === 'top') return { top: '15%', left: '50%' };
-        if (slot === 'left') return { top: '50%', left: '15%' };
-        if (slot === 'right') return { top: '50%', left: '85%' };
-        return { top: '50%', left: '50%' };
-    };
-
-    useEffect(() => {
-        const start = getCoords(item.fromSlot);
-        const end = getCoords(item.toSlot);
-
-        setStyle({
-            position: 'absolute',
-            left: start.left,
-            top: start.top,
-            transform: 'translate(-50%, -50%) scale(0.5) rotate(0deg)',
-            opacity: 0,
-            zIndex: 9999,
-            pointerEvents: 'none',
-            transition: 'none'
-        });
-
-        const timer1 = setTimeout(() => {
-            setStyle(prev => ({
-                ...prev,
-                opacity: 1,
-                transform: 'translate(-50%, -50%) scale(1) rotate(0deg)',
-                transition: 'opacity 0.1s ease-out, transform 0.2s ease-out'
-            }));
-        }, 50);
-
-        const timer2 = setTimeout(() => {
-            setStyle({
-                position: 'absolute',
-                left: end.left,
-                top: end.top,
-                transform: 'translate(-50%, -50%) scale(1.5) rotate(720deg)',
-                opacity: 1,
-                zIndex: 9999,
-                pointerEvents: 'none',
-                transition: 'left 1s ease-in-out, top 1s ease-in-out, transform 1s ease-in-out'
-            });
-        }, 300);
-
-        const timer3 = setTimeout(() => {
-            setStyle(prev => ({ ...prev, opacity: 0, transition: 'opacity 0.2s ease' }));
-        }, 1300);
-
-        const timer4 = setTimeout(onComplete, 1500);
-
-        return () => {
-            clearTimeout(timer1);
-            clearTimeout(timer2);
-            clearTimeout(timer3);
-            clearTimeout(timer4);
-        };
-    }, [item]);
-
-    const imgSrc = ASSETS.INTERACTIONS[item.type];
-
-    return (
-        <div style={style}>
-            {imgSrc ? <img src={imgSrc} alt={item.type} className="w-16 h-16 object-contain drop-shadow-lg" /> : '🎁'}
-        </div>
-    );
-};
 
 function App() {
     const [gameState, setGameState] = useState<GameState>(INITIAL_STATE);
@@ -524,211 +442,7 @@ function App() {
 
 
     // --- Game Logic ---
-
-    const processReadyLogic = (prev: GameState, position: PlayerPosition): GameState => {
-        if (prev.phase !== GamePhase.Reviewing) return prev;
-        if (prev.readyPlayers.includes(position)) return prev;
-
-        const newReady = [...prev.readyPlayers, position];
-        let nextPhase: GamePhase = prev.phase;
-
-        if (newReady.length >= prev.players.length) {
-            nextPhase = GamePhase.Bidding;
-        }
-
-        return { ...prev, readyPlayers: newReady, phase: nextPhase };
-    };
-
-    const processBidLogic = (prev: GameState, bid: Bid): GameState => {
-        if (bid.player !== prev.turn) return prev;
-
-        const newHistory = [...prev.bidHistory, bid];
-        let nextTurn = NEXT_TURN[prev.turn];
-        let newLastBid = prev.lastBid;
-        if (bid.type === 'Bid') newLastBid = bid;
-
-        let nextPhase = prev.phase;
-        let contract = prev.contract;
-        let declarer = prev.declarer;
-
-        let passCount = 0;
-        for (let i = newHistory.length - 1; i >= 0; i--) {
-            if (newHistory[i].type === 'Pass') passCount++;
-            else break;
-        }
-
-        if (newHistory.length === 4 && passCount === 4) {
-            nextTurn = prev.dealer;
-            return { ...prev, bidHistory: newHistory, turn: nextTurn };
-        }
-
-        if (passCount === 3 && newHistory.length >= 4) {
-            const lastBidObj = newHistory[newHistory.length - 4];
-            if (lastBidObj && lastBidObj.type === 'Bid') {
-                nextTurn = lastBidObj.player;
-                return { ...prev, bidHistory: newHistory, turn: nextTurn };
-            }
-        }
-
-        if (passCount === 4 && newHistory.length >= 5) {
-            const winningBid = newHistory[newHistory.length - 5];
-
-            if (winningBid && winningBid.type === 'Bid') {
-                const winner = winningBid.player;
-                const partner = PARTNER[winner];
-                const winningSuit = winningBid.suit!;
-
-                const firstBid = newHistory.find(b =>
-                    b.type === 'Bid' &&
-                    b.suit === winningSuit &&
-                    (b.player === winner || b.player === partner)
-                );
-
-                const dec = firstBid ? firstBid.player : winner;
-                contract = { level: winningBid.level!, suit: winningBid.suit!, declarer: dec };
-                declarer = contract.declarer;
-                nextPhase = GamePhase.Playing;
-                nextTurn = NEXT_TURN[dec];
-            }
-        }
-
-        return {
-            ...prev,
-            bidHistory: newHistory,
-            turn: nextTurn,
-            lastBid: newLastBid,
-            phase: nextPhase,
-            contract,
-            declarer
-        };
-    };
-
-    const processPlayLogic = (prev: GameState, card: Card, position: PlayerPosition): GameState => {
-        if (prev.phase !== GamePhase.Playing) return prev;
-
-        let currentTrick = [...prev.currentTrick];
-        // Explicitly clone tricksWon to ensure React state updates trigger correctly
-        let tricksWon: Record<PlayerPosition, number> = { ...prev.tricksWon };
-        let playHistory = [...prev.playHistory];
-        let newPhase: GamePhase = prev.phase;
-        let winningTeam = prev.winningTeam;
-
-        // LOGIC FIX: If the table is full (4 cards), this "play" action is the Winner of that trick leading the NEXT trick.
-        // We must clear the previous trick and update scores BEFORE processing the new card.
-        if (currentTrick.length === 4) {
-            const winner = getTrickWinner(currentTrick, prev.contract?.suit);
-            if (winner) {
-                tricksWon[winner] = (tricksWon[winner] || 0) + 1;
-                playHistory.push({
-                    trickNumber: playHistory.length + 1,
-                    cards: currentTrick,
-                    winner: winner,
-                    lead: currentTrick[0].player
-                });
-            }
-
-            // CRITICAL: Check for game over *immediately* after score update, before new card is placed.
-            const totalTricks = Object.values(tricksWon).reduce((a: number, b: number) => a + b, 0);
-            if (totalTricks === 13) {
-                // This shouldn't typically happen here (13th trick ends in the bottom block), but valid as safety.
-                newPhase = GamePhase.Finished;
-                const nsTricks = ((tricksWon[PlayerPosition.North] as number) || 0) + ((tricksWon[PlayerPosition.South] as number) || 0);
-                const ewTricks = ((tricksWon[PlayerPosition.East] as number) || 0) + ((tricksWon[PlayerPosition.West] as number) || 0);
-                const declarerIsNS = [PlayerPosition.North, PlayerPosition.South].includes(prev.contract!.declarer);
-                const target = 6 + Number(prev.contract!.level);
-
-                if (declarerIsNS) {
-                    winningTeam = nsTricks >= target ? 'NS' : 'EW';
-                } else {
-                    winningTeam = ewTricks >= target ? 'EW' : 'NS';
-                }
-
-                return {
-                    ...(prev as GameState),
-                    tricksWon,
-                    currentTrick: [],
-                    playHistory,
-                    phase: newPhase,
-                    winningTeam
-                };
-            }
-
-            // If not game over, Clear the table for the new trick
-            currentTrick = [];
-
-            // Validation: Ensure the person clearing (playing next) is the winner
-            if (position !== winner) return prev;
-        } else {
-            if (prev.turn !== position) return prev;
-        }
-
-        // NOW: Process the new card being played
-        const newHand = prev.hands[position].filter(c => c.id !== card.id);
-        const newHands = { ...prev.hands, [position]: newHand };
-        const newTrick = [...currentTrick, { card, player: position }];
-
-        let nextTurn = NEXT_TURN[position];
-
-        // End of Trick Logic (Standard & Final Trick)
-        if (newTrick.length === 4) {
-            const winner = getTrickWinner(newTrick, prev.contract?.suit);
-            nextTurn = winner!;
-
-            // Logic for the 13th Trick (Game End)
-            // Since no one plays a 14th card, we must handle the game end HERE.
-            const totalPlayed = playHistory.length + 1;
-            if (totalPlayed === 13) {
-                // Update score for the final trick immediately
-                tricksWon[winner!] = (tricksWon[winner!] || 0) + 1;
-
-                const finalHistory = [...playHistory, {
-                    trickNumber: 13,
-                    cards: newTrick,
-                    winner: winner!,
-                    lead: newTrick[0].player
-                }];
-
-                const nsTricks = ((tricksWon[PlayerPosition.North] as number) || 0) + ((tricksWon[PlayerPosition.South] as number) || 0);
-                const ewTricks = ((tricksWon[PlayerPosition.East] as number) || 0) + ((tricksWon[PlayerPosition.West] as number) || 0);
-                const declarerIsNS = [PlayerPosition.North, PlayerPosition.South].includes(prev.contract!.declarer);
-                const target = 6 + Number(prev.contract!.level);
-                let wTeam: 'NS' | 'EW' = 'NS';
-
-                if (declarerIsNS) wTeam = nsTricks >= target ? 'NS' : 'EW';
-                else wTeam = ewTricks >= target ? 'EW' : 'NS';
-
-                return {
-                    ...(prev as GameState),
-                    hands: newHands,
-                    currentTrick: [], // Clear table immediately for end screen
-                    tricksWon: tricksWon, // Return updated scores
-                    playHistory: finalHistory,
-                    phase: GamePhase.Finished,
-                    winningTeam: wTeam
-                };
-            }
-        }
-
-        return {
-            ...prev,
-            hands: newHands,
-            currentTrick: newTrick,
-            tricksWon: tricksWon, // Ensure updated scores persist
-            playHistory: playHistory, // Ensure history persists
-            turn: nextTurn
-        };
-    };
-
-    const processSurrender = (prev: GameState, position: PlayerPosition): GameState => {
-        const isNS = [PlayerPosition.North, PlayerPosition.South].includes(position);
-        const winningTeam = isNS ? 'EW' : 'NS';
-        return {
-            ...prev,
-            phase: GamePhase.Finished,
-            winningTeam,
-            surrendered: true
-        };
-    };
+    // (Extracted to services/gameStateReducers) - Wrappers used above.
 
     const startNewDeal = useCallback((isReplay: boolean = false) => {
         const currentState = gameStateRef.current;
