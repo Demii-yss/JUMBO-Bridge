@@ -48,6 +48,19 @@ const PlayerBadge: React.FC<PlayerBadgeProps> = ({
     const displayName = profile ? uniqueNames[profile.id] : TEXT.EMPTY_SLOT;
     const nameColor = isDeclarer ? 'text-yellow-400' : 'text-white';
 
+    const isHiddenSelf = isPortrait && slot === 'bottom';
+    if (isHiddenSelf) badgeClass += ' invisible'; // Hide the badge itself but keep layout
+
+    // Emote Positioning Logic
+    const isPartnerTop = isPortrait && slot === 'top';
+    const emotePositionClass = isPartnerTop
+        ? 'top-full'
+        : 'bottom-full'; // Default: Above the badge (for self and others)
+
+    const arrowPositionClass = isPartnerTop
+        ? '-top-[16px] border-b-[16px] border-b-white'
+        : 'bottom-[-16px] border-t-[16px] border-t-white';
+
     return (
         <div className={badgeClass} onClick={(e) => {
             if (showInteractionHighlight && profile) {
@@ -63,10 +76,13 @@ const PlayerBadge: React.FC<PlayerBadgeProps> = ({
                 </div>
             )}
 
+
             {activeEmote && (
-                <div className={`absolute left-1/2 -translate-x-1/2 bg-white rounded-2xl p-2 shadow-2xl border-4 border-blue-500 animate-bounce z-50 aspect-square w-[80px] h-[80px] flex items-center justify-center ${(isPortrait && slot === 'top') ? 'top-full mt-2' : '-top-[100px]'}`}>
-                    <img src={ASSETS.EMOTES[activeEmote]} className="w-full h-full object-contain" alt="emote" />
-                    <div className={`absolute left-1/2 -translate-x-1/2 border-l-8 border-r-8 border-transparent ${(isPortrait && slot === 'top') ? '-top-[16px] border-b-[16px] border-b-white' : 'bottom-[-16px] border-t-[16px] border-t-white'}`}></div>
+                <div className={`absolute left-1/2 -translate-x-1/2 z-50 visible flex flex-col items-center ${emotePositionClass}`}>
+                    <div className="bg-white rounded-2xl p-2 shadow-2xl border-4 border-blue-500 animate-bounce aspect-square w-[80px] h-[80px] flex items-center justify-center relative">
+                        <img src={ASSETS.EMOTES[activeEmote]} className="w-full h-full object-contain" alt="emote" />
+                        <div className={`absolute left-1/2 -translate-x-1/2 border-l-8 border-r-8 border-transparent ${arrowPositionClass}`}></div>
+                    </div>
                 </div>
             )}
         </div>

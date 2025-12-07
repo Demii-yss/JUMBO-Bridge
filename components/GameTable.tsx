@@ -126,7 +126,7 @@ const GameTable: React.FC<GameTableProps> = memo(({
                 if (slot === 'bottom') {
                     return (
                         <div key={pos} className="absolute bottom-0 left-0 w-full flex flex-col items-center justify-end pb-0 pointer-events-none z-40">
-                            {!isPortrait && <div className="mb-1 pointer-events-auto">{badge}</div>}
+                            <div className="mb-1 pointer-events-auto">{badge}</div>
                             <div className={`pointer-events-auto relative w-full flex justify-center ${isPortrait ? 'scale-[1.0] origin-bottom mb-0' : ''}`}>
                                 <PlayerHand
                                     cards={gameState.hands[pos]}
