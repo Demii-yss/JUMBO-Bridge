@@ -32,6 +32,7 @@ function App() {
     const [showEmotePicker, setShowEmotePicker] = useState(false);
     const [showItemPicker, setShowItemPicker] = useState(false);
     const [selectedItemType, setSelectedItemType] = useState<InteractionType | null>(null);
+    const [activeInteractionType, setActiveInteractionType] = useState<InteractionType>('FLOWER');
     const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
 
     // --- Hooks ---
@@ -84,7 +85,8 @@ function App() {
             id: Date.now() + Math.random(),
             type,
             fromSlot,
-            toSlot
+            toSlot,
+            fromPlayer: from // Store source
         };
 
         setFlyingItems(prev => [...prev, newItem]);
@@ -130,6 +132,9 @@ function App() {
         sendAction
     });
 
+    // Check if my animation is playing (outgoing)
+    const isInteractionLocked = flyingItems.some(item => item.fromPlayer === myPosition);
+
     useEffect(() => {
         const handleResize = () => setDimensions({ width: window.innerWidth, height: window.innerHeight });
         window.addEventListener('resize', handleResize);
@@ -143,13 +148,29 @@ function App() {
         sendAction({ type: NetworkActionType.REQUEST_REDEAL, position: myPosition, points });
     };
 
-    const getPlayerInSlot = (slot: 'bottom' | 'left' | 'top' | 'right') => {
+    const getPlayerInSlot = useCallback((slot: 'bottom' | 'left' | 'top' | 'right') => {
         if (!myPosition) return null;
         if (slot === 'bottom') return myPosition;
         if (slot === 'left') return NEXT_TURN[myPosition];
         if (slot === 'top') return PARTNER[myPosition];
         return [PlayerPosition.North, PlayerPosition.East, PlayerPosition.South, PlayerPosition.West].find(p => getRelativeSlot(p, myPosition) === slot);
-    };
+    }, [myPosition, getRelativeSlot]);
+
+    const handleDropInteraction = useCallback((type: InteractionType, x: number, y: number) => {
+        const { width, height } = dimensions;
+
+        let targetSlot: 'top' | 'left' | 'right' | null = null;
+        if (y < height * 0.2) targetSlot = 'top';
+        else if (x < width * 0.2 && y > height * 0.2) targetSlot = 'left';
+        else if (x > width * 0.8 && y > height * 0.2) targetSlot = 'right';
+
+        if (targetSlot) {
+            const targetPos = getPlayerInSlot(targetSlot);
+            if (targetPos && targetPos !== myPosition) {
+                sendAction({ type: NetworkActionType.INTERACTION, from: myPosition, to: targetPos, interactionType: type } as any);
+            }
+        }
+    }, [dimensions, myPosition, getPlayerInSlot, sendAction]);
 
     let targetTricksDisplay = null;
     let canSurrender = false;
@@ -238,10 +259,18 @@ function App() {
     };
 
     const handleInteraction = (targetPos: PlayerPosition) => {
-        if (!myPosition || !selectedItemType) return;
-        sendAction({ type: NetworkActionType.INTERACTION, from: myPosition, to: targetPos, interactionType: selectedItemType } as any);
+        if (!myPosition) return;
+        if (targetPos === myPosition) return; // Cannot target self
+
+        // Use selected item or active item (fallback for drag)
+        const type = selectedItemType || activeInteractionType;
+        if (!type) return;
+
+        sendAction({ type: NetworkActionType.INTERACTION, from: myPosition, to: targetPos, interactionType: type } as any);
         setSelectedItemType(null);
     };
+
+
 
     const isPortrait = dimensions.height > dimensions.width;
     const safeScale = Math.min(dimensions.width / 1366, dimensions.height / 768);
@@ -287,7 +316,39 @@ function App() {
                     )}
 
                     {selectedItemType && (
-                        <div className="absolute inset-0 z-45 cursor-crosshair" onClick={cancelInteractionSelection}></div>
+                        <>
+                            <div className="absolute inset-0 z-45 cursor-crosshair" onClick={cancelInteractionSelection}></div>
+
+                            {/* Target Zone: Partner (Top) - 20% Height, 100% Width */}
+                            <div
+                                className="absolute top-0 left-0 w-full h-[20%] z-50 hover:bg-white/10 transition-colors cursor-pointer border-b-2 border-white/20"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    const p = getPlayerInSlot('top');
+                                    if (p) handleInteraction(p);
+                                }}
+                            ></div>
+
+                            {/* Target Zone: Left Player - 20% Width, 80% Height (Bottom aligned) */}
+                            <div
+                                className="absolute bottom-0 left-0 w-[20%] h-[80%] z-50 hover:bg-white/10 transition-colors cursor-pointer border-r-2 border-white/20"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    const p = getPlayerInSlot('left');
+                                    if (p) handleInteraction(p);
+                                }}
+                            ></div>
+
+                            {/* Target Zone: Right Player - 20% Width, 80% Height (Bottom aligned) */}
+                            <div
+                                className="absolute bottom-0 right-0 w-[20%] h-[80%] z-50 hover:bg-white/10 transition-colors cursor-pointer border-l-2 border-white/20"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    const p = getPlayerInSlot('right');
+                                    if (p) handleInteraction(p);
+                                }}
+                            ></div>
+                        </>
                     )}
 
                     {flyingItems.map(item => (
@@ -354,6 +415,10 @@ function App() {
                         selectedItemType={selectedItemType}
                         setSelectedItemType={setSelectedItemType}
                         handleEmote={handleEmote}
+                        activeInteractionType={activeInteractionType}
+                        setActiveInteractionType={setActiveInteractionType}
+                        onDropInteraction={handleDropInteraction}
+                        isLocked={isInteractionLocked}
                     />
 
                     {/* Header Info */}

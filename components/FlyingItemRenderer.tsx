@@ -7,6 +7,7 @@ export interface FlyingItem {
     type: InteractionType;
     fromSlot: string;
     toSlot: string;
+    fromPlayer: string; // Add source player ID/Position to track lock
 }
 
 export const FlyingItemRenderer: React.FC<{ item: FlyingItem; onComplete: () => void }> = ({ item, onComplete }) => {
@@ -17,6 +18,7 @@ export const FlyingItemRenderer: React.FC<{ item: FlyingItem; onComplete: () => 
         pointerEvents: 'none',
         transition: 'none'
     });
+    const [showEffect, setShowEffect] = useState(false);
 
     const getCoords = (slot: string) => {
         if (slot === 'bottom') return { top: '85%', left: '50%' };
@@ -30,6 +32,7 @@ export const FlyingItemRenderer: React.FC<{ item: FlyingItem; onComplete: () => 
         const start = getCoords(item.fromSlot);
         const end = getCoords(item.toSlot);
 
+        // Initial State
         setStyle({
             position: 'absolute',
             left: start.left,
@@ -41,6 +44,7 @@ export const FlyingItemRenderer: React.FC<{ item: FlyingItem; onComplete: () => 
             transition: 'none'
         });
 
+        // 1. Fade In
         const timer1 = setTimeout(() => {
             setStyle(prev => ({
                 ...prev,
@@ -50,6 +54,7 @@ export const FlyingItemRenderer: React.FC<{ item: FlyingItem; onComplete: () => 
             }));
         }, 50);
 
+        // 2. Fly to Destination
         const timer2 = setTimeout(() => {
             setStyle({
                 position: 'absolute',
@@ -61,27 +66,64 @@ export const FlyingItemRenderer: React.FC<{ item: FlyingItem; onComplete: () => 
                 pointerEvents: 'none',
                 transition: 'left 1s ease-in-out, top 1s ease-in-out, transform 1s ease-in-out'
             });
+
+            // Just before landing, orient correctly if needed? No, rotation is fine.
         }, 300);
 
+        // 3. Trigger Effect (Landing)
         const timer3 = setTimeout(() => {
-            setStyle(prev => ({ ...prev, opacity: 0, transition: 'opacity 0.2s ease' }));
+            setShowEffect(true);
         }, 1300);
 
-        const timer4 = setTimeout(onComplete, 1500);
+        // 4. Fade Out
+        const timer4 = setTimeout(() => {
+            setStyle(prev => ({ ...prev, opacity: 0, transition: 'opacity 0.5s ease' }));
+        }, 2000);
+
+        // 5. Complete
+        const timer5 = setTimeout(onComplete, 2500);
 
         return () => {
             clearTimeout(timer1);
             clearTimeout(timer2);
             clearTimeout(timer3);
             clearTimeout(timer4);
+            clearTimeout(timer5);
         };
     }, [item]);
 
-    const imgSrc = ASSETS.INTERACTIONS[item.type];
+    // Render logic
+    const isEgg = item.type === 'EGG';
+    const isFlower = item.type === 'FLOWER';
+
+    // Default image
+    let mainImg = ASSETS.INTERACTIONS[item.type];
+
+    // If effect is shown and it's an egg, switch to cracked egg
+    if (showEffect && isEgg) {
+        mainImg = ASSETS.INTERACTIONS['CRACKED_EGG'] || mainImg;
+    }
 
     return (
         <div style={style}>
-            {imgSrc ? <img src={imgSrc} alt={item.type} className="w-16 h-16 object-contain drop-shadow-lg" /> : '🎁'}
+            <div className="relative">
+                {mainImg ? (
+                    <img
+                        src={mainImg}
+                        alt={item.type}
+                        className={`w-16 h-16 object-contain drop-shadow-lg transition-transform duration-200 ${showEffect && isEgg ? 'scale-125' : ''}`}
+                    />
+                ) : '🎁'}
+
+                {/* Flower Sparkles Effect */}
+                {showEffect && isFlower && (
+                    <div className="absolute inset-0 pointer-events-none">
+                        <img src={ASSETS.INTERACTIONS['SPARKLES']} className="absolute -top-4 -left-4 w-8 h-8 animate-ping" style={{ animationDuration: '1s' }} />
+                        <img src={ASSETS.INTERACTIONS['SPARKLES']} className="absolute -top-6 left-8 w-6 h-6 animate-pulse" style={{ animationDelay: '0.1s' }} />
+                        <img src={ASSETS.INTERACTIONS['SPARKLES']} className="absolute bottom-0 -right-6 w-8 h-8 animate-bounce" style={{ animationDelay: '0.2s' }} />
+                    </div>
+                )}
+            </div>
         </div>
     );
 };

@@ -46,6 +46,8 @@ export const ASSETS = {
   INTERACTIONS: {
     'EGG': 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f95a.png',
     'FLOWER': 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f339.png',
+    'CRACKED_EGG': 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f373.png', // Fired Egg as cracked egg
+    'SPARKLES': 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/2728.png',
   }
 };
 
