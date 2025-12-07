@@ -2,6 +2,9 @@
 setlocal enabledelayedexpansion
 cd /d "%~dp0"
 
+echo Closing any existing instances...
+call closeGameHall.bat
+
 echo Starting JUMBO Bridge Game Hall...
 start "JUMBO Bridge Game Hall" npm run dev
 
@@ -36,7 +39,7 @@ if "%IP%"=="" (
 )
 
 echo.
-echo Server is running. Do not close this window if you want others to connect.
-echo Press any key to assume server is stopped or to close this helper script...
-pause
+echo Server is running. The game window should open shortly.
+echo Closing this launcher...
+timeout /t 3 >nul
 exit

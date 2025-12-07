@@ -125,9 +125,9 @@ const GameTable: React.FC<GameTableProps> = memo(({
 
                 if (slot === 'bottom') {
                     return (
-                        <div key={pos} className="absolute bottom-0 left-0 w-full flex flex-col items-center justify-end pb-4 pointer-events-none z-30">
-                            <div className="mb-4 pointer-events-auto">{badge}</div>
-                            <div className={`pointer-events-auto relative w-full flex justify-center ${isPortrait ? 'scale-[1.2] origin-bottom mb-10' : ''}`}>
+                        <div key={pos} className="absolute bottom-0 left-0 w-full flex flex-col items-center justify-end pb-0 pointer-events-none z-40">
+                            {!isPortrait && <div className="mb-1 pointer-events-auto">{badge}</div>}
+                            <div className={`pointer-events-auto relative w-full flex justify-center ${isPortrait ? 'scale-[1.0] origin-bottom mb-0' : ''}`}>
                                 <PlayerHand
                                     cards={gameState.hands[pos]}
                                     position={pos}
@@ -137,7 +137,8 @@ const GameTable: React.FC<GameTableProps> = memo(({
                                     isMyTurn={isMyTurnToPlay}
                                     trumpSuit={gameState.contract?.suit}
                                     onPlayCard={(card) => sendAction({ type: NetworkActionType.PLAY, card, position: pos } as any)}
-                                    scale={isPortrait ? 1.2 : 1}
+                                    scale={isPortrait ? 1.0 : 1}
+                                    interactive={true}
                                 />
                             </div>
                         </div>
@@ -146,44 +147,71 @@ const GameTable: React.FC<GameTableProps> = memo(({
 
                 if (slot === 'top') {
                     return (
-                        <div key={pos} className="absolute top-0 left-0 w-full flex flex-col items-center justify-start pt-4 pointer-events-none z-30">
-                            <div className="mt-4 order-last pointer-events-auto">{badge}</div>
-                            <div className="pointer-events-auto relative w-full flex justify-center">
-                                {!isPortrait && (
-                                    <PlayerHand
-                                        cards={gameState.hands[pos]}
-                                        position={pos}
-                                        isFaceUp={false}
-                                        vertical={false}
-                                    />
-                                )}
+                        <div key={pos} className="absolute top-0 left-0 w-full flex justify-center items-start pt-4 pointer-events-none z-30">
+                            {/* Wrapper to align Badge and Hand relative to each other */}
+                            <div className="relative pointer-events-auto mt-4">
+                                <div className="absolute top-[8vmin] left-1/2 -translate-x-1/2 z-40 pointer-events-auto">
+                                    {badge}
+                                </div>
+                                <div className="relative z-30">
+                                    {!isPortrait && (
+                                        <PlayerHand
+                                            cards={gameState.hands[pos]}
+                                            position={pos}
+                                            isFaceUp={false}
+                                            vertical={false}
+                                        />
+                                    )}
+                                </div>
                             </div>
                         </div>
                     );
                 }
 
                 if (slot === 'left') {
-                    return (
-                        <div key={pos} className="absolute left-0 top-0 h-full flex flex-row items-center pl-2 pointer-events-none z-30">
-                            <div className="pointer-events-auto relative">
-                                {!isPortrait && (
-                                    <PlayerHand cards={gameState.hands[pos]} position={pos} isFaceUp={false} vertical={true} />
-                                )}
+                    if (isPortrait) {
+                        return (
+                            <div key={pos} className="absolute left-0 top-0 h-full w-20 z-30 pointer-events-none">
+                                <div className="absolute top-[40%] left-1 pointer-events-auto">{badge}</div>
                             </div>
-                            <div className="ml-8 whitespace-nowrap vertical-lr pointer-events-auto">{badge}</div>
+                        );
+                    }
+                    return (
+                        <div key={pos} className="absolute left-0 top-0 h-full w-20 flex flex-col justify-center items-start pl-2 pointer-events-none z-30">
+                            <div className="relative pointer-events-auto">
+                                <div className="absolute top-1/2 left-0 -translate-y-1/2 z-40">
+                                    {badge}
+                                </div>
+                                <div className="relative z-30 pl-4 py-8">
+                                    {!isPortrait && (
+                                        <PlayerHand cards={gameState.hands[pos]} position={pos} isFaceUp={false} vertical={true} />
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     );
                 }
 
                 if (slot === 'right') {
-                    return (
-                        <div key={pos} className="absolute right-0 top-0 h-full flex flex-row-reverse items-center pr-2 pointer-events-none z-30">
-                            <div className="pointer-events-auto relative">
-                                {!isPortrait && (
-                                    <PlayerHand cards={gameState.hands[pos]} position={pos} isFaceUp={false} vertical={true} />
-                                )}
+                    if (isPortrait) {
+                        return (
+                            <div key={pos} className="absolute right-0 top-0 h-full w-20 z-30 pointer-events-none">
+                                <div className="absolute top-[40%] right-1 pointer-events-auto">{badge}</div>
                             </div>
-                            <div className="mr-8 whitespace-nowrap vertical-lr pointer-events-auto">{badge}</div>
+                        );
+                    }
+                    return (
+                        <div key={pos} className="absolute right-0 top-0 h-full w-20 flex flex-col justify-center items-end pr-2 pointer-events-none z-30">
+                            <div className="relative pointer-events-auto">
+                                <div className="absolute top-1/2 right-0 -translate-y-1/2 z-40">
+                                    {badge}
+                                </div>
+                                <div className="relative z-30 pr-4 py-8">
+                                    {!isPortrait && (
+                                        <PlayerHand cards={gameState.hands[pos]} position={pos} isFaceUp={false} vertical={true} />
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     );
                 }

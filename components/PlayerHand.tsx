@@ -14,6 +14,7 @@ interface PlayerHandProps {
   onPlayCard?: (card: CardType) => void;
   trumpSuit?: Suit | 'NT';
   scale?: number; // Added scale prop support
+  interactive?: boolean; // Control hover/interaction
 }
 
 const PlayerHand: React.FC<PlayerHandProps> = ({
@@ -25,7 +26,8 @@ const PlayerHand: React.FC<PlayerHandProps> = ({
   isMyTurn,
   onPlayCard,
   trumpSuit,
-  scale = 1
+  scale = 1,
+  interactive = false
 }) => {
   // FIX: Do not fall back to Array(13). If cards is empty [], it should render nothing.
   // We only default to empty array if cards is strictly undefined/null.
@@ -67,7 +69,11 @@ const PlayerHand: React.FC<PlayerHandProps> = ({
         const count = displayCards.length;
         const cardSize = vertical ? 17.5 : 14;
 
-        let overlap = vertical ? 3.5 : 5.5;
+        // Base overlap (offset). User requested 50% overlap for small hands (2 cards).
+        // Card width is 14. 50% is 7.
+        // If we set base to 7, small hands will have 50% overlap.
+        // Large hands will trigger squeeze logic and reduce this.
+        let overlap = vertical ? 3.5 : cardSize * 0.5;
 
         // Squeeze logic (Width)
         const maxW = 90;
@@ -107,12 +113,13 @@ const PlayerHand: React.FC<PlayerHandProps> = ({
         }
 
         return (
-          <div key={card?.id || index} style={style} className="pointer-events-auto origin-center hover:scale-110 transition-transform">
+          <div key={card?.id || index} style={style} className={`pointer-events-auto origin-center transition-transform ${interactive ? 'hover:scale-110' : ''}`}>
             <Card
               card={isFaceUp ? card : undefined}
               mini={vertical && !isFaceUp}
               disabled={isFaceUp && isMyTurn && !isValid}
               isTrump={isTrump}
+              interactive={interactive}
               onClick={isFaceUp && isMyTurn && isValid && onPlayCard ? () => onPlayCard(card) : undefined}
             />
           </div>

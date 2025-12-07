@@ -4,7 +4,8 @@ import {
 } from './types';
 import BiddingBox from './components/BiddingBox';
 import AuctionBoard from './components/AuctionBoard';
-import { TEXT, NEXT_TURN, PARTNER, SUIT_COLORS_LIGHT, SUIT_SYMBOLS } from './constants';
+import { TEXT, NEXT_TURN, PARTNER } from './constants';
+import { SUIT_COLORS_LIGHT, SUIT_SYMBOLS, COLORS } from './colors';
 import CardComponent from './components/Card';
 import { FlyingItemRenderer, FlyingItem } from './components/FlyingItemRenderer';
 import { useGameLogic } from './hooks/useGameLogic';
@@ -269,7 +270,10 @@ function App() {
 
     return (
         <ServerMonitor>
-            <div className="h-screen w-screen bg-[#1a472a] overflow-hidden flex justify-center items-center relative select-none font-sans">
+            <div
+                className={`fixed inset-0 ${COLORS.TABLE_BG} overflow-hidden flex justify-center items-center relative select-none font-sans`}
+                style={{ width: dimensions.width, height: dimensions.height }}
+            >
                 <div className="absolute inset-0 pointer-events-none opacity-30 bg-[url('https://www.transparenttextures.com/patterns/felt.png')]"></div>
 
                 <div
@@ -335,7 +339,7 @@ function App() {
                     {canSurrender && (
                         <button
                             onClick={() => sendAction({ type: NetworkActionType.SURRENDER, position: myPosition! } as any)}
-                            className="absolute bottom-40 right-10 z-50 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded shadow-lg animate-bounce"
+                            className={`absolute bottom-40 right-10 z-50 ${COLORS.BTN_DANGER} font-bold py-2 px-6 rounded shadow-lg animate-bounce`}
                         >
                             {TEXT.SURRENDER}
                         </button>
@@ -375,7 +379,7 @@ function App() {
                                 <button
                                     onClick={() => sendAction({ type: NetworkActionType.DEAL } as any)}
                                     disabled={gameState.players.length < 4}
-                                    className="bg-yellow-600 hover:bg-yellow-500 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed text-black px-8 py-4 rounded shadow font-bold text-2xl scale-[1.25] origin-top-right mr-20 mt-10"
+                                    className={`${COLORS.BTN_PRIMARY} ${COLORS.BTN_DISABLED} px-8 py-4 rounded shadow font-bold text-2xl fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[100]`}
                                 >
                                     {TEXT.DEAL_CARDS}
                                 </button>
@@ -384,17 +388,41 @@ function App() {
                     </div>
 
                     {/* Main Table (Center) for Playing Cards - Fluid Size */}
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                        <div className="relative w-[50vmin] h-[40vmin] pointer-events-auto">
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[60]">
+                        <div className="relative w-0 h-0 pointer-events-auto overflow-visible">
                             {gameState.currentTrick.map((tc) => {
                                 const relativeSlot = getRelativeSlot(tc.player, myPosition);
                                 let positionStyle: React.CSSProperties = { position: 'absolute', transition: 'all 0.5s ease-out' };
 
-                                // Position played cards
-                                if (relativeSlot === 'bottom') { positionStyle.bottom = '20%'; positionStyle.left = '50%'; positionStyle.transform = 'translateX(-50%)'; }
-                                if (relativeSlot === 'top') { positionStyle.top = '20%'; positionStyle.left = '50%'; positionStyle.transform = 'translateX(-50%)'; }
-                                if (relativeSlot === 'left') { positionStyle.left = '20%'; positionStyle.top = '50%'; positionStyle.transform = 'translateY(-50%)'; }
-                                if (relativeSlot === 'right') { positionStyle.right = '20%'; positionStyle.top = '50%'; positionStyle.transform = 'translateY(-50%)'; }
+                                // Position played cards relative to center (0,0)
+                                // Top: Move up. Bottom: Move down.
+                                // Sides: Move left/right.
+                                if (relativeSlot === 'bottom') {
+                                    // Portrait: Push down 40% of screen (~30vmin from center?).
+                                    // Previous was bottom -40% of 40vmin box => 16vmin from box bottom. Box bottom is 20vmin. So 36vmin.
+                                    // Landscape: center (0,0)? No, bottom of table. Table 40vmin? 20vmin.
+                                    // Let's use vmin offsets.
+                                    positionStyle.top = isPortrait ? '35vmin' : '15vmin';
+                                    positionStyle.left = '0';
+                                    positionStyle.transform = 'translate(-50%, -50%)';
+                                }
+                                if (relativeSlot === 'top') {
+                                    positionStyle.top = isPortrait ? '-25vmin' : '-15vmin';
+                                    positionStyle.left = '0';
+                                    positionStyle.transform = 'translate(-50%, -50%)';
+                                }
+                                if (relativeSlot === 'left') {
+                                    // Portrait: Side edge. 48vw approx.
+                                    // Landscape: Side of table.
+                                    positionStyle.left = isPortrait ? '-45vw' : '-25vmin';
+                                    positionStyle.top = isPortrait ? '10vmin' : '0';
+                                    positionStyle.transform = isPortrait ? 'translate(0, -50%) rotate(90deg)' : 'translate(-50%, -50%) rotate(90deg)';
+                                }
+                                if (relativeSlot === 'right') {
+                                    positionStyle.right = isPortrait ? '-45vw' : '-25vmin';
+                                    positionStyle.top = isPortrait ? '10vmin' : '0';
+                                    positionStyle.transform = isPortrait ? 'translate(0, -50%) rotate(90deg)' : 'translate(50%, -50%) rotate(90deg)';
+                                }
 
                                 const isWinning = currentTrickWinner === tc.player;
                                 return (
@@ -406,10 +434,22 @@ function App() {
                         </div>
                     </div>
 
-                    {/* Bidding UI (Modified for Portrait) */}
+                    {/* Bidding UI (Scaled Dynamically for Landscape only) */}
                     {gameState.phase === GamePhase.Bidding && (
-                        <div className={`absolute left-1/2 -translate-x-1/2 z-50 flex gap-4 animate-fade-in-up pointer-events-auto ${isPortrait ? 'flex-col bottom-[25%] scale-90' : 'flex-row bottom-[35%]'}`}>
-                            <AuctionBoard history={gameState.bidHistory} dealer={gameState.dealer} />
+                        <div
+                            className={`absolute left-1/2 -translate-x-1/2 z-50 flex gap-4 animate-fade-in-up pointer-events-auto ${isPortrait ? 'flex-col top-0 origin-top pt-2' : 'flex-row bottom-[35%] origin-center'}`}
+                            style={{
+                                transform: isPortrait
+                                    ? 'translate(-50%, 0)' // No scale in portrait (handled by component sizing)
+                                    : `translate(-50%, 0) scale(${safeScale * 1.2})`
+                            }}
+                        >
+                            <AuctionBoard
+                                history={gameState.bidHistory}
+                                dealer={gameState.dealer}
+                                myPosition={myPosition}
+                                isPortrait={isPortrait}
+                            />
                             <BiddingBox
                                 onBid={(bid) => sendAction({ type: NetworkActionType.BID, bid } as any)}
                                 history={gameState.bidHistory}
@@ -437,7 +477,7 @@ function App() {
                                     <button
                                         onClick={() => sendAction({ type: NetworkActionType.READY, position: myPosition! } as any)}
                                         disabled={hasRequestedRedeal}
-                                        className="bg-green-600 hover:bg-green-500 disabled:bg-gray-600 disabled:cursor-not-allowed disabled:transform-none text-white font-bold py-4 px-12 rounded-xl shadow-lg text-3xl transform hover:scale-105 transition"
+                                        className={`${COLORS.BTN_SUCCESS} disabled:bg-gray-600 disabled:cursor-not-allowed disabled:transform-none font-bold py-4 px-12 rounded-xl shadow-lg text-3xl transform hover:scale-105 transition`}
                                     >
                                         {TEXT.READY}
                                     </button>

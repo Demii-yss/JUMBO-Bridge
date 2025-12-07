@@ -1,14 +1,16 @@
-
 import React, { useEffect, useRef } from 'react';
 import { Bid, PlayerPosition } from '../types';
-import { SUIT_COLORS, SUIT_SYMBOLS, TEXT } from '../constants';
+import { TEXT, PLAYER_LABELS } from '../constants';
+import { SUIT_COLORS, SUIT_SYMBOLS } from '../colors';
 
 interface AuctionBoardProps {
   history: Bid[];
   dealer: PlayerPosition;
+  myPosition: PlayerPosition | null;
+  isPortrait?: boolean;
 }
 
-const AuctionBoard: React.FC<AuctionBoardProps> = ({ history, dealer }) => {
+const AuctionBoard: React.FC<AuctionBoardProps> = ({ history, dealer, myPosition, isPortrait }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -19,18 +21,41 @@ const AuctionBoard: React.FC<AuctionBoardProps> = ({ history, dealer }) => {
 
   const positions = [PlayerPosition.West, PlayerPosition.North, PlayerPosition.East, PlayerPosition.South];
   const dealerIdx = positions.indexOf(dealer);
-  
-  const cells: (Bid | null)[] = Array(dealerIdx).fill(null); 
+
+  const cells: (Bid | null)[] = Array(dealerIdx).fill(null);
   history.forEach(bid => cells.push(bid));
 
+  const getArrowForColumn = (colIdx: number) => {
+    if (!myPosition) return '−'; // Fallback
+    const targetPos = positions[colIdx];
+
+    const nextOf: Record<string, PlayerPosition> = {
+      [PlayerPosition.North]: PlayerPosition.East,
+      [PlayerPosition.East]: PlayerPosition.South,
+      [PlayerPosition.South]: PlayerPosition.West,
+      [PlayerPosition.West]: PlayerPosition.North,
+    };
+
+    if (targetPos === myPosition) return PLAYER_LABELS.ME;
+    // Visual Left (Clockwise Next)
+    if (nextOf[myPosition] === targetPos) return PLAYER_LABELS.LEFT;
+    // Partner (Opposite)
+    if (nextOf[nextOf[myPosition]] === targetPos) return PLAYER_LABELS.PARTNER;
+    // Visual Right (Counter-Clockwise Next)
+    return PLAYER_LABELS.RIGHT;
+  };
+
+  // Portrait: 350px (175% of previous 200px)
+  // Landscape: 400px (Standard)
+  const heightClass = isPortrait ? 'h-[350px]' : 'h-[400px]';
+
   return (
-    // Width adjusted to fit side-by-side with BiddingBox
-    <div className="bg-white/95 rounded-xl shadow-2xl border-4 border-yellow-600 p-2 w-[400px] h-[400px] flex flex-col pointer-events-auto">
+    // Width adjusted to fit side-by-side with BiddingBox, Height dynamic
+    <div className={`bg-white/95 rounded-xl shadow-2xl border-4 border-yellow-600 p-2 w-[400px] ${heightClass} flex flex-col pointer-events-auto transition-all duration-300`}>
       <div className="grid grid-cols-4 gap-1 mb-2 border-b-2 border-gray-300 pb-1 text-center font-bold text-gray-800 text-2xl">
-        <div>{TEXT[PlayerPosition.West]}</div>
-        <div>{TEXT[PlayerPosition.North]}</div>
-        <div>{TEXT[PlayerPosition.East]}</div>
-        <div>{TEXT[PlayerPosition.South]}</div>
+        {[0, 1, 2, 3].map(i => (
+          <div key={i}>{getArrowForColumn(i)}</div>
+        ))}
       </div>
       <div ref={scrollRef} className="overflow-y-auto scrollbar-hide flex-1">
         <div className="grid grid-cols-4 gap-2 text-center text-2xl">
@@ -43,7 +68,7 @@ const AuctionBoard: React.FC<AuctionBoardProps> = ({ history, dealer }) => {
                   {bid.type === 'Pass' && <span className="text-green-700">{TEXT.PASS}</span>}
                   {bid.type === 'Bid' && (
                     <span className="flex items-center gap-1">
-                      {bid.level}
+                      <span className="text-slate-900 font-bold">{bid.level}</span>
                       <span className={SUIT_COLORS[bid.suit!]}>
                         {SUIT_SYMBOLS[bid.suit!]}
                       </span>

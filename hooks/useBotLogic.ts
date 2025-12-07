@@ -120,12 +120,23 @@ export const useBotLogic = ({ gameState, isHost, myPosition, sendAction }: UseBo
                     bidType = candidate.suit;
                 }
 
+                // --- Auto-Pass if we are the current highest bidder ---
+                // (Safeguard: In standard bridge this shouldn't happen, but if turn returns to us, we must pass)
+                if (gameState.lastBid && gameState.lastBid.player === botPosition) {
+                    bidType = 'Pass';
+                }
+
                 if (bidType !== 'Pass') {
                     const suitRank = { 'C': 0, 'D': 1, 'H': 2, 'S': 3, 'NT': 4 };
                     let currentLevel = 0;
                     let currentSuitRank = -1;
 
-                    if (gameState.contract) {
+                    // Use lastBid for comparison if available (more accurate than contract which might be unset or old)
+                    if (gameState.lastBid && gameState.lastBid.type === 'Bid') {
+                        currentLevel = gameState.lastBid.level!;
+                        currentSuitRank = suitRank[gameState.lastBid.suit as Suit | 'NT'];
+                    }
+                    else if (gameState.contract) {
                         currentLevel = gameState.contract.level;
                         currentSuitRank = suitRank[gameState.contract.suit];
                     }
@@ -136,6 +147,7 @@ export const useBotLogic = ({ gameState, isHost, myPosition, sendAction }: UseBo
                     if (currentLevel === 0) {
                         bidLevel = 1; // Open
                     } else {
+                        // Fix: Strictly check rank at current level
                         if (mySuitRank > currentSuitRank) {
                             bidLevel = currentLevel;
                         } else {
@@ -143,7 +155,13 @@ export const useBotLogic = ({ gameState, isHost, myPosition, sendAction }: UseBo
                         }
                     }
 
-                    if (bidLevel <= 7) {
+                    // FIX: Ensure we don't bid same level with lower/equal rank (redundant check but safe)
+                    if (bidLevel === currentLevel && mySuitRank <= currentSuitRank) {
+                        bidLevel++;
+                    }
+
+                    // FIX: Cap at Level 3
+                    if (bidLevel <= 3) {
                         sendAction({ type: NetworkActionType.BID, bid: { type: 'Bid', suit: candidate.suit, level: bidLevel, player: botPosition } });
                     } else {
                         sendAction({ type: NetworkActionType.BID, bid: { type: 'Pass', player: botPosition } });

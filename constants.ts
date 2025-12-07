@@ -1,29 +1,9 @@
 import { Rank, Suit, PlayerPosition } from './types';
 
-export const SUIT_SYMBOLS: Record<Suit | 'NT', string> = {
-  [Suit.Clubs]: '♣',
-  [Suit.Diamonds]: '♦',
-  [Suit.Hearts]: '♥',
-  [Suit.Spades]: '♠',
-  'NT': 'NT'
-};
 
 
-export const SUIT_COLORS: Record<Suit | 'NT', string> = {
-  [Suit.Clubs]: 'text-slate-800',
-  [Suit.Diamonds]: 'text-red-600',
-  [Suit.Hearts]: 'text-red-600',
-  [Suit.Spades]: 'text-slate-900',
-  'NT': 'text-blue-800'
-};
 
-export const SUIT_COLORS_LIGHT: Record<Suit | 'NT', string> = {
-  [Suit.Clubs]: 'text-gray-200',
-  [Suit.Diamonds]: 'text-red-400',
-  [Suit.Hearts]: 'text-red-400',
-  [Suit.Spades]: 'text-white',
-  'NT': 'text-cyan-300'
-};
+
 
 export const RANK_ORDER = [
   Rank.Two, Rank.Three, Rank.Four, Rank.Five, Rank.Six, Rank.Seven,
@@ -31,6 +11,13 @@ export const RANK_ORDER = [
 ];
 
 export const SUIT_ORDER = [Suit.Clubs, Suit.Diamonds, Suit.Hearts, Suit.Spades];
+
+export const PLAYER_LABELS = {
+  LEFT: '👈',
+  RIGHT: '👉',
+  PARTNER: '👆',
+  ME: '👇'
+};
 
 export const NEXT_TURN: Record<PlayerPosition, PlayerPosition> = {
   [PlayerPosition.North]: PlayerPosition.East,

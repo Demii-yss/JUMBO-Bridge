@@ -64,8 +64,8 @@ const PlayerBadge: React.FC<PlayerBadgeProps> = ({
             )}
 
             {activeEmote && (
-                <div className={`absolute left-1/2 -translate-x-1/2 bg-white rounded-2xl p-2 shadow-2xl border-4 border-blue-500 animate-bounce z-50 ${(isPortrait && slot === 'top') ? 'top-full mt-2' : '-top-[80px]'}`}>
-                    <img src={ASSETS.EMOTES[activeEmote]} className="w-[64px] h-[64px] object-contain" alt="emote" />
+                <div className={`absolute left-1/2 -translate-x-1/2 bg-white rounded-2xl p-2 shadow-2xl border-4 border-blue-500 animate-bounce z-50 aspect-square w-[80px] h-[80px] flex items-center justify-center ${(isPortrait && slot === 'top') ? 'top-full mt-2' : '-top-[100px]'}`}>
+                    <img src={ASSETS.EMOTES[activeEmote]} className="w-full h-full object-contain" alt="emote" />
                     <div className={`absolute left-1/2 -translate-x-1/2 border-l-8 border-r-8 border-transparent ${(isPortrait && slot === 'top') ? '-top-[16px] border-b-[16px] border-b-white' : 'bottom-[-16px] border-t-[16px] border-t-white'}`}></div>
                 </div>
             )}
