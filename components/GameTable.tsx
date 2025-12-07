@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { GameState, PlayerPosition, GamePhase, NetworkActionType } from '../types';
-import { NEXT_TURN, PARTNER } from '../constants';
+import { NEXT_TURN, PARTNER, TEXT } from '../constants'; // Import TEXT
 import PlayerHand from './PlayerHand';
 import PlayerBadge from './PlayerBadge';
 
@@ -15,7 +15,9 @@ interface GameTableProps {
     handleInteraction: (pos: PlayerPosition) => void;
     isMyTurnToPlay: boolean;
     sendAction: (action: any) => void;
-    getRelativeSlot: (target: PlayerPosition, myPos: PlayerPosition) => string;
+    saveReplay?: () => void;
+    onAddBot?: (slot: PlayerPosition) => void; // New Prop
+    isHost?: boolean; // To check permissions
 }
 
 const GameTable: React.FC<GameTableProps> = memo(({
@@ -29,20 +31,60 @@ const GameTable: React.FC<GameTableProps> = memo(({
     handleInteraction,
     isMyTurnToPlay,
     sendAction,
-    getRelativeSlot
+    getRelativeSlot,
+    saveReplay,
+    onAddBot,
+    isHost
 }) => {
     return (
         <>
             {['top', 'left', 'right', 'bottom'].map((slot) => {
-                let pos: PlayerPosition;
-                if (slot === 'bottom') pos = myPosition!;
-                else if (slot === 'top') pos = PARTNER[myPosition!];
-                else if (slot === 'left') pos = NEXT_TURN[myPosition!];
-                else pos = NEXT_TURN[PARTNER[myPosition!]];
+                let targetPos: PlayerPosition | null = null;
 
-                if (!pos) return null;
+                // Determine which position corresponds to this slot
+                if (slot === 'bottom') targetPos = myPosition;
+                else if (slot === 'top') targetPos = PARTNER[myPosition];
+                else if (slot === 'left') targetPos = NEXT_TURN[myPosition];
+                else targetPos = NEXT_TURN[PARTNER[myPosition]];
 
-                const profile = getProfile(pos);
+                // If myPosition is somehow null (shouldn't happen in game table), fallback
+                if (!myPosition) return null;
+
+                // Check if there is a player in this position
+                const profile = targetPos ? getProfile(targetPos) : null;
+
+                // Logic for EMPTY SLOT
+                if (!profile) {
+                    if (!targetPos) return null; // Should definitely be a valid enum value here
+
+                    // Render "Waiting..." or "Add Bot" Placeholder
+                    let style: React.CSSProperties = {};
+                    if (slot === 'top') style = { top: '20%', left: '50%', transform: 'translate(-50%, -50%)' };
+                    if (slot === 'left') style = { top: '50%', left: '20%', transform: 'translate(-50%, -50%)' };
+                    if (slot === 'right') style = { top: '50%', right: '20%', transform: 'translate(50%, -50%)' };
+
+                    // If it's bottom, it's me, so never empty.
+
+                    return (
+                        <div key={`empty-${slot}`} className="absolute z-20" style={style}>
+                            <div className="flex flex-col items-center justify-center p-4 bg-black/40 rounded-xl border-2 border-dashed border-gray-500 backdrop-blur-sm">
+                                <span className="text-gray-400 mb-2 font-bold">{TEXT[targetPos]}</span>
+                                <div className="text-gray-500 text-sm mb-2">{TEXT.WAITING_FOR_OTHERS}</div>
+                                {isHost && onAddBot && (
+                                    <button
+                                        onClick={() => onAddBot(targetPos!)}
+                                        className="bg-green-700/80 hover:bg-green-600 text-white text-xs px-3 py-1 rounded shadow transition"
+                                    >
+                                        + ADD BOT
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    );
+                }
+
+                const pos = targetPos!; // Now we know it's a valid player
+
                 const isTurn = gameState.turn === pos;
                 const isActive = isTurn && (gameState.phase === GamePhase.Playing || gameState.phase === GamePhase.Bidding);
                 const isDeclarer = gameState.contract?.declarer === pos;

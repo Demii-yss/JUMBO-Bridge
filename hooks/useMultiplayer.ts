@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect, MutableRefObject } from 'react';
 import { NetworkMessage, PlayerPosition, GameState, GamePhase, Bid, Card, InteractionType, PlayerProfile, NetworkActionType } from '../types';
 import { TEXT } from '../constants';
 import { processBidLogic, processPlayLogic, processReadyLogic, processSurrender } from '../services/gameStateReducers';
-import { calculateHCP } from '../services/bridgeLogic';
 
 // Declare PeerJS globally
 declare const Peer: any;
@@ -53,8 +52,6 @@ export const useMultiplayer = ({
     const initPeer = () => {
         if (peerRef.current) return;
         addLog("Init PeerJS...");
-        // CRITICAL FIX: Add ICE servers to allow connection on Mobile/LAN (traverses simple NATs)
-        // Fix: Force connection to standard PeerJS server with SSL, mimicking production env
         const peer = new Peer(undefined, {
             host: '0.peerjs.com',
             port: 443,
@@ -87,7 +84,7 @@ export const useMultiplayer = ({
 
         peer.on('connection', (conn: any) => {
             conn.on('data', (data: NetworkMessage) => {
-                handleHostReceivedData(data, conn);
+                handleHostReceivedDataRef.current(data, conn);
             });
             conn.on('open', () => {
                 clientsRef.current.push(conn);
@@ -110,7 +107,6 @@ export const useMultiplayer = ({
         initPeer();
         return () => {
             if (peerRef.current) {
-                // Prevent 'close' event from updating UI during unmount
                 peerRef.current.removeAllListeners();
                 peerRef.current.destroy();
                 peerRef.current = null;
@@ -122,18 +118,16 @@ export const useMultiplayer = ({
     const copyRoomId = async (id: string) => {
         if (!id) return;
         try {
-            // Try standard API first
             if (navigator.clipboard && window.isSecureContext) {
                 await navigator.clipboard.writeText(id);
             } else {
-                // Fallback for HTTP/LAN
                 const textArea = document.createElement("textarea");
                 textArea.value = id;
                 textArea.style.position = "absolute";
                 textArea.style.left = "-9999px";
                 document.body.appendChild(textArea);
                 textArea.select();
-                document.execCommand('copy'); // Deprecated but works for this fallback
+                document.execCommand('copy');
                 document.body.removeChild(textArea);
             }
             setCopyFeedback(TEXT.COPIED);
@@ -146,9 +140,9 @@ export const useMultiplayer = ({
 
     // --- Host Logic ---
 
-    const handleHostReceivedData = (data: NetworkMessage, conn: any) => {
-        const currentState = gameStateRef.current;
+    const handleHostReceivedDataRef = useRef<(data: NetworkMessage, conn: any) => void>(() => { });
 
+    const handleHostReceivedData = (data: NetworkMessage, conn: any) => {
         if (data.type === NetworkActionType.EMOTE) {
             broadcastMessage(data);
             triggerEmote(data.position, data.emoji);
@@ -165,7 +159,6 @@ export const useMultiplayer = ({
             return;
         }
         if (data.type === NetworkActionType.REQUEST_REDEAL) {
-            // Decoupled: Delegate logic to GameLogic hook
             handleRedealRequest(
                 { position: data.position, points: data.points },
                 (msgContent) => {
@@ -220,6 +213,10 @@ export const useMultiplayer = ({
         });
     };
 
+    useEffect(() => {
+        handleHostReceivedDataRef.current = handleHostReceivedData;
+    });
+
     const broadcastState = (state: GameState, excludeId?: string) => {
         clientsRef.current.forEach(conn => {
             if (conn.open && conn.peer !== excludeId) {
@@ -241,6 +238,29 @@ export const useMultiplayer = ({
             broadcastState(gameState);
         }
     }, [gameState, isHost]);
+
+    // --- Host: Add Bot Logic ---
+    const addBot = (slot: PlayerPosition) => {
+        if (!isHost) return;
+        setGameState(prev => {
+            if (prev.players.some(p => p.position === slot)) return prev;
+
+            // Create unique ID for bot
+            const botId = `BOT-${slot}-${Date.now()}`;
+            const newBot: PlayerProfile = {
+                id: botId,
+                name: `${TEXT[slot]} (BOT)`,
+                position: slot,
+                isHost: false,
+                isBot: true
+            };
+
+            const newPlayers = [...prev.players, newBot];
+            const newState = { ...prev, players: newPlayers };
+
+            return newState;
+        });
+    };
 
 
     // --- Client Logic ---
@@ -329,5 +349,6 @@ export const useMultiplayer = ({
         connectToHost,
         copyRoomId,
         sendAction,
+        addBot // Export addBot
     };
 };

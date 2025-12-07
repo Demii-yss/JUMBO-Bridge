@@ -9,6 +9,7 @@ import CardComponent from './components/Card';
 import { FlyingItemRenderer, FlyingItem } from './components/FlyingItemRenderer';
 import { useGameLogic } from './hooks/useGameLogic';
 import { useMultiplayer } from './hooks/useMultiplayer';
+import { useBotLogic } from './hooks/useBotLogic';
 import { getTrickWinner, calculateHCP } from './services/bridgeLogic';
 
 // Extracted Components
@@ -95,7 +96,8 @@ function App() {
         copyFeedback,
         connectToHost,
         copyRoomId,
-        sendAction
+        sendAction,
+        addBot // Get addBot
     } = useMultiplayer({
         gameState,
         setGameState,
@@ -116,6 +118,14 @@ function App() {
     const isHost = myPosition === PlayerPosition.North;
     const isMyTurnToPlay = gameState.turn === myPosition && gameState.phase === GamePhase.Playing;
     const currentTrickWinner = gameState.currentTrick.length > 0 ? getTrickWinner(gameState.currentTrick, gameState.contract?.suit) : null;
+
+    // --- Bot Logic Integration ---
+    useBotLogic({
+        gameState,
+        isHost,
+        myPosition,
+        sendAction
+    });
 
     useEffect(() => {
         const handleResize = () => setDimensions({ width: window.innerWidth, height: window.innerHeight });
@@ -432,6 +442,8 @@ function App() {
                     isMyTurnToPlay={isMyTurnToPlay}
                     sendAction={sendAction}
                     getRelativeSlot={getRelativeSlot}
+                    onAddBot={addBot}
+                    isHost={isHost}
                 />
 
                 {gameState.phase === GamePhase.Finished && (
