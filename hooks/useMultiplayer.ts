@@ -101,7 +101,11 @@ export const useMultiplayer = ({
         peer.on('error', (err: any) => {
             console.error("Peer Error:", err);
             addLog(`Error: ${err.type}`);
-            setStatusMsg(`Connection Error: ${err.type}`);
+            if (err.type === 'peer-unavailable') {
+                setStatusMsg("Room ID not found or host offline");
+            } else {
+                setStatusMsg(`Connection Error: ${err.type}`);
+            }
         });
 
         peerRef.current = peer;
@@ -273,6 +277,17 @@ export const useMultiplayer = ({
         });
     };
 
+    const removeBot = (slot: PlayerPosition) => {
+        if (!isHost) return;
+        setGameState(prev => {
+            const playerToRemove = prev.players.find(p => p.position === slot);
+            if (!playerToRemove || !playerToRemove.isBot) return prev;
+
+            const newPlayers = prev.players.filter(p => p.position !== slot);
+            return { ...prev, players: newPlayers };
+        });
+    };
+
 
     // --- Client Logic ---
 
@@ -360,6 +375,7 @@ export const useMultiplayer = ({
         connectToHost,
         copyRoomId,
         sendAction,
-        addBot // Export addBot
+        addBot,
+        removeBot
     };
 };

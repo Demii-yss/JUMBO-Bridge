@@ -12,14 +12,16 @@ interface UseBotLogicProps {
 
 // Helpers
 const getRankValue = (rank: Rank): number => {
-    // RANK_ORDER is ['2', '3', ... 'A']
-    // User logic:
-    // < 10 (2-9)
-    // >= 10 (10, J, Q, K, A)
-    // Let's rely on RANK_ORDER index for comparison, but for the "10" threshold:
-    // 2=0, 3=1... 9=7, 10=8.
-    // So distinct threshold is index >= 8.
+    // 2=0, 3=1... 9=7, 10=8... A=12
     return RANK_ORDER.indexOf(rank);
+};
+
+const getHCP = (rank: Rank): number => {
+    if (rank === 'A') return 4;
+    if (rank === 'K') return 3;
+    if (rank === 'Q') return 2;
+    if (rank === 'J') return 1;
+    return 0;
 };
 
 const isHighCard = (rank: Rank): boolean => {
@@ -27,6 +29,8 @@ const isHighCard = (rank: Rank): boolean => {
 };
 
 export const useBotLogic = ({ gameState, isHost, myPosition, sendAction }: UseBotLogicProps) => {
+
+    const botTurnState = useRef<{ turn: PlayerPosition | null, targetTime: number }>({ turn: null, targetTime: 0 });
 
     useEffect(() => {
         if (!isHost) return;
@@ -39,7 +43,15 @@ export const useBotLogic = ({ gameState, isHost, myPosition, sendAction }: UseBo
             if (pendingBots.length > 0) {
                 const timer = setTimeout(() => {
                     const botToReady = pendingBots[0];
-                    sendAction({ type: NetworkActionType.READY, position: botToReady.position });
+                    // Request redeal if hand is terrible or too good
+                    const hand = gameState.hands[botToReady.position];
+                    const hcp = hand.reduce((sum, card) => sum + getHCP(card.rank), 0);
+
+                    if (hcp < 4 || hcp > 16) {
+                        sendAction({ type: NetworkActionType.REQUEST_REDEAL, position: botToReady.position, points: hcp });
+                    } else {
+                        sendAction({ type: NetworkActionType.READY, position: botToReady.position });
+                    }
                 }, 500);
                 return () => clearTimeout(timer);
             }
@@ -48,15 +60,100 @@ export const useBotLogic = ({ gameState, isHost, myPosition, sendAction }: UseBo
 
         // --- TURN-BASED PHASES (Bidding, Playing) ---
         const currentPlayerProfile = gameState.players.find(p => p.position === gameState.turn);
-        if (!currentPlayerProfile || !currentPlayerProfile.isBot) return;
+        if (!currentPlayerProfile || !currentPlayerProfile.isBot) {
+            if (botTurnState.current.turn !== null) {
+                botTurnState.current = { turn: null, targetTime: 0 };
+            }
+            return;
+        }
 
         const botPosition = currentPlayerProfile.position;
         const hand = gameState.hands[botPosition];
 
-        const executeBotAction = () => {
-            if (gameState.phase === GamePhase.Bidding) {
-                sendAction({ type: NetworkActionType.BID, bid: { type: 'Pass', player: botPosition } });
+        // --- 1. Delay Logic ---
+        let delay = 0;
+        if (botTurnState.current.turn !== botPosition) {
+            let minDelay = 1000;
+            let maxDelay = 2500;
+            // Rule: Leading -> 2.5s - 4.0s
+            if (gameState.phase === GamePhase.Playing && gameState.currentTrick.length === 0) {
+                minDelay = 2500;
+                maxDelay = 4000;
             }
+            delay = Math.floor(Math.random() * (maxDelay - minDelay + 1)) + minDelay;
+            botTurnState.current = { turn: botPosition, targetTime: Date.now() + delay };
+        } else {
+            delay = Math.max(0, botTurnState.current.targetTime - Date.now());
+        }
+
+        const executeBotAction = () => {
+            // --- 2. Bidding Logic ---
+            if (gameState.phase === GamePhase.Bidding) {
+                // Calculate Stats
+                const suits: Suit[] = [Suit.Spades, Suit.Hearts, Suit.Diamonds, Suit.Clubs];
+                const stats = suits.map(suit => {
+                    const suitCards = hand.filter(c => c.suit === suit);
+                    const ai = suitCards.reduce((sum, c) => sum + getHCP(c.rank), 0);
+                    const bi = suitCards.length;
+                    return { suit, ai, bi };
+                });
+
+                const totalHCP = stats.reduce((sum, s) => sum + s.ai, 0);
+                const isBalanced = stats.every(s => s.bi <= 5);
+
+                // Select Candidate Suit s
+                // Max ai, then Max bi
+                const sortedStats = [...stats].sort((a, b) => {
+                    if (b.ai !== a.ai) return b.ai - a.ai;
+                    return b.bi - a.bi;
+                });
+                const candidate = sortedStats[0];
+
+                let bidType: string = 'Pass';
+
+                // Decision Tree
+                if (isBalanced && totalHCP >= 14) {
+                    bidType = candidate.suit;
+                } else if (totalHCP >= 12 && candidate.bi >= 5) {
+                    bidType = candidate.suit;
+                } else if (candidate.bi >= 6 && totalHCP >= 9) {
+                    bidType = candidate.suit;
+                }
+
+                if (bidType !== 'Pass') {
+                    const suitRank = { 'C': 0, 'D': 1, 'H': 2, 'S': 3, 'NT': 4 };
+                    let currentLevel = 0;
+                    let currentSuitRank = -1;
+
+                    if (gameState.contract) {
+                        currentLevel = gameState.contract.level;
+                        currentSuitRank = suitRank[gameState.contract.suit];
+                    }
+
+                    const mySuitRank = suitRank[candidate.suit as Suit];
+                    let bidLevel = 1;
+
+                    if (currentLevel === 0) {
+                        bidLevel = 1; // Open
+                    } else {
+                        if (mySuitRank > currentSuitRank) {
+                            bidLevel = currentLevel;
+                        } else {
+                            bidLevel = currentLevel + 1;
+                        }
+                    }
+
+                    if (bidLevel <= 7) {
+                        sendAction({ type: NetworkActionType.BID, bid: { type: 'Bid', suit: candidate.suit, level: bidLevel, player: botPosition } });
+                    } else {
+                        sendAction({ type: NetworkActionType.BID, bid: { type: 'Pass', player: botPosition } });
+                    }
+
+                } else {
+                    sendAction({ type: NetworkActionType.BID, bid: { type: 'Pass', player: botPosition } });
+                }
+            }
+            // --- 3. Playing Logic ---
             else if (gameState.phase === GamePhase.Playing) {
                 const validCards = hand.filter(card => canPlayCard(card, hand, gameState.currentTrick));
 
@@ -69,16 +166,14 @@ export const useBotLogic = ({ gameState, isHost, myPosition, sendAction }: UseBo
                 const trumpSuit = gameState.contract?.suit;
                 const isTrumpGame = trumpSuit && trumpSuit !== 'NT';
 
-                // Sort helpers
+                // Helpers
                 const sortByRankAsc = (cards: Card[]) => [...cards].sort((a, b) => getRankValue(a.rank) - getRankValue(b.rank));
                 const sortByRankDesc = (cards: Card[]) => [...cards].sort((a, b) => getRankValue(b.rank) - getRankValue(a.rank));
-
                 const getMin = (cards: Card[]) => sortByRankAsc(cards)[0];
                 const getMax = (cards: Card[]) => sortByRankDesc(cards)[0];
 
-
-                // SCENARIO 1: LEADING
-                if (gameState.currentTrick.length === 0 || gameState.currentTrick.length === 4) {
+                // SCENARIO 1: LEADING (Trick is empty)
+                if (gameState.currentTrick.length === 0) {
                     const declarer = gameState.contract!.declarer;
                     const partner = PARTNER[declarer];
                     const isAttacker = (botPosition === declarer || botPosition === partner);
@@ -87,33 +182,35 @@ export const useBotLogic = ({ gameState, isHost, myPosition, sendAction }: UseBo
                     const nonTrumps = isTrumpGame ? validCards.filter(c => c.suit !== trumpSuit) : validCards;
 
                     if (!isAttacker) {
-                        // DEFENDER
-                        // Choose from non-trumps first. If none, use trump.
+                        // DEFENDER (Different Team)
+                        // Priority: Non-Trump -> Trump
                         const pool = nonTrumps.length > 0 ? nonTrumps : trumps;
-
+                        // Logic:
+                        // If Max < 10 -> Play Min
+                        // If Max >= 10 -> Play Max
                         if (pool.length > 0) {
                             const maxCard = getMax(pool);
                             if (isHighCard(maxCard.rank)) {
-                                cardToPlay = maxCard; // >= 10, Play Max
+                                cardToPlay = maxCard;
                             } else {
-                                cardToPlay = getMin(pool); // < 10, Play Min
+                                cardToPlay = getMin(pool);
                             }
                         } else {
-                            // Should be impossible if validCards > 0
                             cardToPlay = validCards[0];
                         }
                     } else {
-                        // ATTACKER
+                        // ATTACKER (Same Team)
                         if (trumps.length > 0) {
+                            // Have Trumps
                             const maxTrump = getMax(trumps);
                             if (isHighCard(maxTrump.rank)) {
-                                cardToPlay = maxTrump; // >= 10, Play Max Trump
+                                cardToPlay = maxTrump; // >=10 Play Max
                             } else {
-                                cardToPlay = getMin(trumps); // < 10, Play Min Trump
+                                cardToPlay = getMin(trumps); // <10 Play Min
                             }
                         } else {
-                            // No trumps
-                            const maxCard = getMax(validCards); // validCards == nonTrumps here
+                            // No Trumps
+                            const maxCard = getMax(validCards);
                             if (isHighCard(maxCard.rank)) {
                                 cardToPlay = maxCard;
                             } else {
@@ -124,106 +221,108 @@ export const useBotLogic = ({ gameState, isHost, myPosition, sendAction }: UseBo
 
                 } else {
                     // SCENARIO 2: FOLLOWING
-                    // Identify Trick Winner so far
-                    // Trick passed to getTrickWinner needs to be currentTrick
-                    const currentWinnerPos = getTrickWinner(gameState.currentTrick, trumpSuit);
-
-                    // We need the winning CARD value to compare
-                    const getWinningCard = () => {
-                        let bestIdx = 0;
-                        gameState.currentTrick.forEach((tc, i) => {
-                            if (tc.player === currentWinnerPos) bestIdx = i;
-                        });
-                        return gameState.currentTrick[bestIdx].card;
-                    };
-
-                    const winningCard = getWinningCard();
-                    const winVal = getRankValue(winningCard.rank);
-
-                    // Logic check: "Currently Largest" means taking into account suit/trump?
-                    // "目前場上最大點數" usually implies the winning card's power.
-                    // But requirement compares "Hand Max Valid Rank" vs "Table Max Rank".
-                    // It simplifies to Rank comparison? Let's assume standard bridge power comparison.
-                    // IF we can beat the current winner with a valid card, we might want to.
-
-                    // Requirement specific phrasing:
-                    // "If cannot play trump per rule" (Meaning: Not a trump game? Or no trumps in hand? Or following suit prevents playing trump?)
-                    // Context: "Rule" usually means Following Suit.
-
                     const firstCard = gameState.currentTrick[0].card;
-                    const canFollow = validCards.some(c => c.suit === firstCard.suit);
-
-                    const canPlayTrump = isTrumpGame && validCards.some(c => c.suit === trumpSuit);
                     const leadIsTrump = isTrumpGame && firstCard.suit === trumpSuit;
-
-                    // Case: Cannot Follow Lead Suit (and lead wasn't trump, or we are out of lead suit)
-                    // If we can't follow suit, validCards contains either trumps (if any) or discards.
-
-                    // Sub-logic: "If rule allows playing trump"
-                    // In Bridge, if you can't follow suit, you CAN play trump.
-                    // So if (!canFollow) and (hasTrump), we qualify for "Can Play Trump".
-
-                    // Let's trace requirement strictly:
-
-                    // "Not Leading"
-                    // "If cannot play trump by rule" -> This implies either Game is NT, OR we have no Trumps, OR we Must Follow Suit (and suit is not trump).
-                    // Actually, "validCards" already filters by rule.
-                    // So "Cannot play trump" effectively means "We are not playing a trump card in this turn".
-                    // BUT we are CHOOSING a card.
-
-                    // INTERPRETATION:
-                    // - Condition A: We CANNOT play a trump (No trumps in validCards, OR forced to follow non-trump).
-                    // - Condition B: We CAN play a trump (We have trumps, and either Lead is Trump OR We are void in lead suit).
 
                     const hasTrumpInValid = isTrumpGame && validCards.some(c => c.suit === trumpSuit);
 
+                    // IMPORTANT: Determine "Can Play Trump Per Rule"
+                    // Current Table Max
+                    const currentWinnerPos = getTrickWinner(gameState.currentTrick, trumpSuit);
+                    const getWinningCard = () => {
+                        let bestIdx = 0;
+                        gameState.currentTrick.forEach((tc, i) => { if (tc.player === currentWinnerPos) bestIdx = i; });
+                        return gameState.currentTrick[bestIdx].card;
+                    };
+                    const winningCard = getWinningCard();
+                    const winVal = getRankValue(winningCard.rank);
+
                     if (!hasTrumpInValid) {
-                        // Case: No Trump involved in our decision
-                        const maxValid = getMax(validCards);
+                        // --- Cannot Play Trump (Must follow non-trump, or discarding non-trump) ---
 
-                        // Compare MaxValid vs "Current Table Max"
-                        // Note: If different suits, direct rank comparison is weird, but usually "Table Max" means the winning card's rank IF it dominates?
-                        // If we are discarding, we can't win anyway.
-                        // But let's follow the "Rank vs Rank" instruction literally.
-                        const maxValidVal = getRankValue(maxValid.rank);
-                        const tableMaxVal = winVal; // Determining "Table Max" is complex if trumps involved. Let's use winning card.
+                        let shouldUseMin = false;
 
-                        if (maxValidVal < tableMaxVal) {
+                        // Check Partner status
+                        // Logic: If Partner played & Partner is Winning & (Partner Card Rank >= 11 OR Partner Card is Trump) -> Play Min
+                        const partnerPos = PARTNER[botPosition];
+                        const partnerPlayed = gameState.currentTrick.some(tc => tc.player === partnerPos);
+
+                        if (partnerPlayed && currentWinnerPos === partnerPos) {
+                            const partnerCard = winningCard; // Since partner is winner, winningCard IS partnerCard
+                            const isPartnerTrump = isTrumpGame && partnerCard.suit === trumpSuit;
+                            const partnerRankVal = getRankValue(partnerCard.rank);
+
+                            // Rank >= 11 (Jack or higher). IndexMap: 10->8, J->9. So index >= 9.
+                            const isStrongRank = partnerRankVal >= 9;
+
+                            if (isPartnerTrump || isStrongRank) {
+                                shouldUseMin = true;
+                            }
+                        }
+
+                        if (shouldUseMin) {
                             cardToPlay = getMin(validCards);
                         } else {
-                            cardToPlay = getMax(validCards);
-                        }
-                    } else {
-                        // We HAVE trumps in validCards.
-                        // Subcase: Lead was Trump?
-                        if (leadIsTrump) {
-                            // We MUST follow trump (since validCards has trumps).
+                            // Standard Max vs Table Max logic
                             const maxValid = getMax(validCards);
-                            const maxValidVal = getRankValue(maxValid.rank);
-                            const tableMaxVal = winVal;
+                            const maxVal = getRankValue(maxValid.rank);
 
-                            if (maxValidVal < tableMaxVal) {
-                                cardToPlay = getMin(validCards); // Min Trump
+                            if (maxVal < winVal) {
+                                cardToPlay = getMin(validCards);
                             } else {
-                                cardToPlay = getMax(validCards); // Max Trump
+                                cardToPlay = getMax(validCards);
+                            }
+                        }
+
+                    } else {
+                        // --- Can Play Trump --- (We have trumps in valid set)
+
+                        if (leadIsTrump) {
+                            // Case: Lead was Trump (Standard follow)
+                            const maxValid = getMax(validCards); // Trumps
+                            const maxVal = getRankValue(maxValid.rank);
+
+                            if (maxVal < winVal) {
+                                cardToPlay = getMin(validCards);
+                            } else {
+                                cardToPlay = getMax(validCards);
                             }
                         } else {
-                            // Lead was NOT Trump, but we CAN play trump (so we are void in lead suit).
-                            // Requirement: "If rule allows trump, and lead NOT trump -> Play Min Trump"
-                            // (Wait, logic says "Play Min Trump" if lead not trump? Usually you ruff with min to win, or high to over-ruff?)
-                            // User Req: "打出最小點數的王牌" (Play min rank trump).
-                            const trumps = validCards.filter(c => c.suit === trumpSuit);
-                            cardToPlay = getMin(trumps);
+                            // Case: Lead NOT Trump, but we are playing Trump (Cutting/Ruffing)
+                            const partnerPos = PARTNER[botPosition];
+                            const partnerPlayed = gameState.currentTrick.some(tc => tc.player === partnerPos);
+
+                            if (!partnerPlayed) {
+                                // Partner hasn't played -> Play Min Trump
+                                const trumps = validCards.filter(c => c.suit === trumpSuit);
+                                cardToPlay = getMin(trumps);
+                            } else {
+                                // Partner Played. Is Partner winning?
+                                if (currentWinnerPos === partnerPos) {
+                                    // Partner is Max (Winning) -> Play Min NON-Trump (Discard)
+                                    const nonTrumps = validCards.filter(c => c.suit !== trumpSuit);
+                                    if (nonTrumps.length > 0) {
+                                        cardToPlay = getMin(nonTrumps);
+                                    } else {
+                                        const trumps = validCards.filter(c => c.suit === trumpSuit);
+                                        cardToPlay = getMin(trumps);
+                                    }
+                                } else {
+                                    // Partner NOT Max -> Play Min Trump
+                                    const trumps = validCards.filter(c => c.suit === trumpSuit);
+                                    cardToPlay = getMin(trumps);
+                                }
+                            }
                         }
                     }
                 }
 
-                if (!cardToPlay) cardToPlay = validCards[0]; // Fallback
+                if (!cardToPlay) cardToPlay = validCards[0];
                 sendAction({ type: NetworkActionType.PLAY, card: cardToPlay, position: botPosition });
             }
         };
 
-        const timer = setTimeout(executeBotAction, 50); // Immediate
+        const timer = setTimeout(executeBotAction, delay);
         return () => clearTimeout(timer);
 
     }, [gameState, isHost, sendAction]);

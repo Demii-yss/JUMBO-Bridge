@@ -16,8 +16,9 @@ interface GameTableProps {
     isMyTurnToPlay: boolean;
     sendAction: (action: any) => void;
     saveReplay?: () => void;
-    onAddBot?: (slot: PlayerPosition) => void; // New Prop
-    isHost?: boolean; // To check permissions
+    onAddBot?: (slot: PlayerPosition) => void;
+    onRemoveBot?: (slot: PlayerPosition) => void; // New Prop
+    isHost?: boolean;
 }
 
 const GameTable: React.FC<GameTableProps> = memo(({
@@ -34,6 +35,7 @@ const GameTable: React.FC<GameTableProps> = memo(({
     getRelativeSlot,
     saveReplay,
     onAddBot,
+    onRemoveBot,
     isHost
 }) => {
     return (
@@ -91,22 +93,34 @@ const GameTable: React.FC<GameTableProps> = memo(({
                 const isSideBadge = slot === 'left' || slot === 'right';
 
                 const badge = (
-                    <PlayerBadge
-                        pos={pos}
-                        profile={profile}
-                        isTurn={isTurn}
-                        isActive={isActive}
-                        isDeclarer={isDeclarer}
-                        isSideBadge={isSideBadge}
-                        tricksWon={gameState.tricksWon[pos]}
-                        gamePhase={gameState.phase}
-                        activeEmote={activeEmotes[pos]}
-                        showInteractionHighlight={!!selectedItemType}
-                        handleInteraction={handleInteraction}
-                        uniqueNames={uniqueNames}
-                        isPortrait={isPortrait}
-                        slot={slot}
-                    />
+                    <div className="relative group">
+                        <PlayerBadge
+                            pos={pos}
+                            profile={profile}
+                            isTurn={isTurn}
+                            isActive={isActive}
+                            isDeclarer={isDeclarer}
+                            isSideBadge={isSideBadge}
+                            tricksWon={gameState.tricksWon[pos]}
+                            gamePhase={gameState.phase}
+                            activeEmote={activeEmotes[pos]}
+                            showInteractionHighlight={!!selectedItemType}
+                            handleInteraction={handleInteraction}
+                            uniqueNames={uniqueNames}
+                            isPortrait={isPortrait}
+                            slot={slot}
+                        />
+                        {/* Remove Bot Button */}
+                        {isHost && profile.isBot && gameState.phase === GamePhase.Idle && onRemoveBot && (
+                            <button
+                                onClick={() => onRemoveBot(pos)}
+                                className="absolute -top-3 -right-3 z-50 bg-red-600 hover:bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shadow-md border-2 border-white scale-0 group-hover:scale-100 transition-transform duration-200"
+                                title="Remove Bot"
+                            >
+                                X
+                            </button>
+                        )}
+                    </div>
                 );
 
                 if (slot === 'bottom') {
