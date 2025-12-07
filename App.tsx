@@ -354,7 +354,7 @@ function App() {
                             <button
                                 onClick={() => sendAction({ type: NetworkActionType.DEAL } as any)}
                                 disabled={gameState.players.length < 4}
-                                className="bg-yellow-600 hover:bg-yellow-500 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed text-black px-8 py-4 rounded shadow font-bold text-2xl scale-[2.5] origin-top-right mr-20 mt-10"
+                                className="bg-yellow-600 hover:bg-yellow-500 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed text-black px-8 py-4 rounded shadow font-bold text-2xl scale-[1.25] origin-top-right mr-20 mt-10"
                             >
                                 {TEXT.DEAL_CARDS}
                             </button>

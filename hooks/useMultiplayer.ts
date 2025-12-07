@@ -52,7 +52,11 @@ export const useMultiplayer = ({
     const initPeer = () => {
         if (peerRef.current) return;
         addLog("Init PeerJS...");
-        const peer = new Peer(undefined, {
+
+        // Generate 5-digit ID (10000-99999)
+        const myId = Math.floor(10000 + Math.random() * 90000).toString();
+
+        const peer = new Peer(myId, {
             host: '0.peerjs.com',
             port: 443,
             path: '/',
@@ -174,35 +178,42 @@ export const useMultiplayer = ({
             return;
         }
 
+        if (data.type === NetworkActionType.JOIN_REQUEST) {
+            // Use Ref to get current state
+            const prev = gameStateRef.current || gameState;
+
+            if (prev.players.length >= 4) return;
+            // Check if player arguably already joined? 
+            if (prev.players.some(p => p.id === conn.peer)) return;
+
+            const occupiedPositions = prev.players.map(p => p.position);
+            const reserved = (prev.phase === GamePhase.Lobby && !occupiedPositions.includes(PlayerPosition.North))
+                ? [PlayerPosition.North]
+                : [];
+
+            const allPositions = [PlayerPosition.North, PlayerPosition.East, PlayerPosition.South, PlayerPosition.West];
+            const available = allPositions.filter(p => !occupiedPositions.includes(p) && !reserved.includes(p));
+            const nextPosition = available[0];
+
+            if (!nextPosition) return;
+
+            const newPlayer: PlayerProfile = {
+                id: conn.peer,
+                name: data.name,
+                position: nextPosition,
+                isHost: false
+            };
+
+            const newPlayers = [...prev.players, newPlayer];
+            const newState = { ...prev, players: newPlayers };
+
+            setGameState(newState);
+            conn.send({ type: NetworkActionType.JOIN_ACCEPT, state: newState, yourPosition: nextPosition });
+            broadcastState(newState, conn.peer);
+            return;
+        }
+
         setGameState(prev => {
-            if (data.type === NetworkActionType.JOIN_REQUEST) {
-                if (prev.players.length >= 4) return prev;
-                const occupiedPositions = prev.players.map(p => p.position);
-
-                const reserved = (prev.phase === GamePhase.Lobby && !occupiedPositions.includes(PlayerPosition.North))
-                    ? [PlayerPosition.North]
-                    : [];
-
-                const allPositions = [PlayerPosition.North, PlayerPosition.East, PlayerPosition.South, PlayerPosition.West];
-                const available = allPositions.filter(p => !occupiedPositions.includes(p) && !reserved.includes(p));
-                const nextPosition = available[0];
-
-                if (!nextPosition) return prev;
-
-                const newPlayer: PlayerProfile = {
-                    id: conn.peer,
-                    name: data.name,
-                    position: nextPosition,
-                    isHost: false
-                };
-
-                const newPlayers = [...prev.players, newPlayer];
-                const newState = { ...prev, players: newPlayers };
-                conn.send({ type: NetworkActionType.JOIN_ACCEPT, state: newState, yourPosition: nextPosition });
-                broadcastState(newState, conn.peer);
-                return newState;
-            }
-
             if (data.type === NetworkActionType.BID) return processBidLogic(prev, data.bid);
             if (data.type === NetworkActionType.READY) return processReadyLogic(prev, data.position);
             if (data.type === NetworkActionType.PLAY) return processPlayLogic(prev, data.card, data.position);
