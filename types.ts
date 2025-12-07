@@ -56,10 +56,10 @@ export interface TrickCard {
 }
 
 export interface PlayLog {
-    trickNumber: number;
-    cards: TrickCard[];
-    winner: PlayerPosition;
-    lead: PlayerPosition;
+  trickNumber: number;
+  cards: TrickCard[];
+  winner: PlayerPosition;
+  lead: PlayerPosition;
 }
 
 export interface GameState {
@@ -74,12 +74,12 @@ export interface GameState {
   declarer: PlayerPosition | null;
   players: PlayerProfile[];
   readyPlayers: PlayerPosition[];
-  
+
   // Playing Phase State
   currentTrick: TrickCard[];
-  tricksWon: Record<PlayerPosition, number>; 
+  tricksWon: Record<PlayerPosition, number>;
   playHistory: PlayLog[]; // For End Game Summary
-  
+
   // End Game State
   winningTeam?: 'NS' | 'EW';
   surrendered?: boolean;
@@ -87,19 +87,35 @@ export interface GameState {
 
 export type InteractionType = 'EGG' | 'FLOWER';
 
+export enum NetworkActionType {
+  JOIN_REQUEST = 'JOIN_REQUEST',
+  JOIN_ACCEPT = 'JOIN_ACCEPT',
+  STATE_UPDATE = 'STATE_UPDATE',
+  BID = 'ACTION_BID',
+  DEAL = 'ACTION_DEAL',
+  REQUEST_REDEAL = 'ACTION_REQUEST_REDEAL',
+  MESSAGE = 'ACTION_MESSAGE',
+  READY = 'ACTION_READY',
+  PLAY = 'ACTION_PLAY',
+  SURRENDER = 'ACTION_SURRENDER',
+  RESTART = 'ACTION_RESTART',
+  EMOTE = 'ACTION_EMOTE',
+  INTERACTION = 'ACTION_INTERACTION'
+}
+
 // Network Messages
-export type NetworkMessage = 
-  | { type: 'JOIN_REQUEST'; name: string }
-  | { type: 'JOIN_ACCEPT'; state: GameState; yourPosition: PlayerPosition }
-  | { type: 'STATE_UPDATE'; state: GameState }
-  | { type: 'ACTION_BID'; bid: Bid }
-  | { type: 'ACTION_DEAL' }
-  | { type: 'ACTION_REQUEST_REDEAL'; position: PlayerPosition; points?: number }
-  | { type: 'ACTION_MESSAGE'; message: string }
-  | { type: 'ACTION_READY'; position: PlayerPosition }
-  | { type: 'ACTION_PLAY'; card: Card; position: PlayerPosition }
-  | { type: 'ACTION_SURRENDER'; position: PlayerPosition }
-  | { type: 'ACTION_RESTART' }
+export type NetworkMessage =
+  | { type: NetworkActionType.JOIN_REQUEST; name: string }
+  | { type: NetworkActionType.JOIN_ACCEPT; state: GameState; yourPosition: PlayerPosition }
+  | { type: NetworkActionType.STATE_UPDATE; state: GameState }
+  | { type: NetworkActionType.BID; bid: Bid }
+  | { type: NetworkActionType.DEAL }
+  | { type: NetworkActionType.REQUEST_REDEAL; position: PlayerPosition; points?: number }
+  | { type: NetworkActionType.MESSAGE; message: string }
+  | { type: NetworkActionType.READY; position: PlayerPosition }
+  | { type: NetworkActionType.PLAY; card: Card; position: PlayerPosition }
+  | { type: NetworkActionType.SURRENDER; position: PlayerPosition }
+  | { type: NetworkActionType.RESTART }
   // Interactions (Not part of game state/history)
-  | { type: 'ACTION_EMOTE'; emoji: string; position: PlayerPosition }
-  | { type: 'ACTION_INTERACTION'; interactionType: InteractionType; from: PlayerPosition; to: PlayerPosition };
+  | { type: NetworkActionType.EMOTE; emoji: string; position: PlayerPosition }
+  | { type: NetworkActionType.INTERACTION; interactionType: InteractionType; from: PlayerPosition; to: PlayerPosition };
