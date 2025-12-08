@@ -66,8 +66,9 @@ export const COLORS = {
         BORDER_TRUMP: 'border-[#4f46e5] bg-[#ffffff]',
         RING_HIGHLIGHT: 'ring-[#facc15] border-[#ffffff]',
         SHADOW_HIGHLIGHT: '',
-        DISABLED_STYLE: 'grayscale brightness-75', // Fallback
-        DISABLED_RED: 'saturate-50 brightness-90 bg-gray-100', // Desaturated but reddish
-        DISABLED_BLACK: 'grayscale brightness-75 bg-gray-200'  // Gray
+        DISABLED_STYLE: 'bg-gray-300 cursor-not-allowed', // Fallback
+        DISABLED_RED: 'bg-gray-300 cursor-not-allowed', // Solid gray, Red text applied via text color class
+        DISABLED_BLACK: 'bg-gray-300 cursor-not-allowed', // Solid gray, Gray text applied via text color class
+        DISABLED_BG: 'bg-gray-300' // Shared Constant
     }
 };

@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Card as CardType } from '../types';
+import { Card as CardType, Suit } from '../types';
 import { SUIT_COLORS, SUIT_SYMBOLS, COLORS } from '../colors'; // Updated import
 
 interface CardProps {
@@ -59,7 +59,7 @@ const Card: React.FC<CardProps> = ({
   /* Determine Color Class based on State */
   let colorClass = SUIT_COLORS[card.suit];
   if (disabled) {
-    if (card.suit === 'Hearts' || card.suit === 'Diamonds') {
+    if (card.suit === Suit.Hearts || card.suit === Suit.Diamonds) {
       colorClass = COLORS.TEXT_DISABLED_RED;
     } else {
       colorClass = COLORS.TEXT_DISABLED_BLACK;
@@ -72,7 +72,7 @@ const Card: React.FC<CardProps> = ({
   let disabledClass = '';
   if (disabled && card) {
     // Check suit for color
-    const isRed = card.suit === 'Hearts' || card.suit === 'Diamonds';
+    const isRed = card.suit === Suit.Hearts || card.suit === Suit.Diamonds;
     disabledClass = isRed ? `${COLORS.CARD.DISABLED_RED} cursor-not-allowed` : `${COLORS.CARD.DISABLED_BLACK} cursor-not-allowed`;
   }
   const opacityClass = disabled ? disabledClass : 'opacity-100 cursor-pointer hover:z-50';
@@ -104,7 +104,7 @@ const Card: React.FC<CardProps> = ({
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseLeave}
       className={`
-        ${COLORS.CARD.FRONT_BG} rounded-[1.5vmin] select-none transition-all duration-150 ease-out
+        ${disabled ? '' : COLORS.CARD.FRONT_BG} rounded-[1.5vmin] select-none transition-all duration-150 ease-out
         w-[14vmin] h-[20vmin]
         border-2 shadow-2xl
         relative
