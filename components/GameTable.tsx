@@ -46,7 +46,7 @@ const GameTable: React.FC<GameTableProps> = memo(({
                 // Determine which position corresponds to this slot
                 if (slot === 'bottom') targetPos = myPosition;
                 else if (slot === 'top') targetPos = PARTNER[myPosition];
-                else if (slot === 'left') targetPos = NEXT_TURN[myPosition];
+                else if (slot === 'right') targetPos = NEXT_TURN[myPosition];
                 else targetPos = NEXT_TURN[PARTNER[myPosition]];
 
                 // If myPosition is somehow null (shouldn't happen in game table), fallback

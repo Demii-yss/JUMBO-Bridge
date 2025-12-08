@@ -31,7 +31,7 @@ const GameLobby: React.FC<GameLobbyProps> = memo(({
     debugLogs
 }) => {
     return (
-        <div className={`h-screen w-screen ${COLORS.LOBBY_BG} flex justify-center items-center ${COLORS.TEXT_PRIMARY} font-sans`}>
+        <div className={`fixed inset-0 overflow-hidden ${COLORS.LOBBY_BG} flex justify-center items-center ${COLORS.TEXT_PRIMARY} font-sans`}>
             <div className={`w-full max-w-md p-8 ${COLORS.PANEL_BG} rounded-xl shadow-2xl border ${COLORS.BORDER_MAIN}`}>
                 <h1 className={`text-4xl font-bold text-center ${COLORS.GAME_TITLE} mb-8`}>{TEXT.GAME_TITLE}</h1>
                 <div className="space-y-4">

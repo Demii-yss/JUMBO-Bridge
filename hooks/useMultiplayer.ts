@@ -53,8 +53,8 @@ export const useMultiplayer = ({
         if (peerRef.current) return;
         addLog("Init PeerJS...");
 
-        // Generate 5-digit ID (10000-99999)
-        const myId = Math.floor(10000 + Math.random() * 90000).toString();
+        // Generate 3-digit ID (100-999)
+        const myId = Math.floor(100 + Math.random() * 900).toString();
 
         const peer = new Peer(myId, {
             host: '0.peerjs.com',
@@ -102,7 +102,7 @@ export const useMultiplayer = ({
             console.error("Peer Error:", err);
             addLog(`Error: ${err.type}`);
             if (err.type === 'peer-unavailable') {
-                setStatusMsg("Room ID not found or host offline");
+                setStatusMsg(TEXT.NO_SUCH_ROOM);
             } else {
                 setStatusMsg(`Connection Error: ${err.type}`);
             }
@@ -186,7 +186,10 @@ export const useMultiplayer = ({
             // Use Ref to get current state
             const prev = gameStateRef.current || gameState;
 
-            if (prev.players.length >= 4) return;
+            if (prev.players.length >= 4) {
+                conn.send({ type: NetworkActionType.JOIN_REJECT, reason: TEXT.ROOM_FULL });
+                return;
+            }
             // Check if player arguably already joined? 
             if (prev.players.some(p => p.id === conn.peer)) return;
 
@@ -307,6 +310,11 @@ export const useMultiplayer = ({
                 triggerInteraction(data.interactionType, data.from, data.to);
             } else if (data.type === NetworkActionType.MESSAGE) {
                 setSystemMessage(data.message);
+            } else if (data.type === NetworkActionType.JOIN_REJECT) {
+                setStatusMsg(data.reason);
+                if (connRef.current) {
+                    connRef.current.close();
+                }
             }
         };
     });

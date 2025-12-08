@@ -10,10 +10,11 @@ interface BiddingBoxProps {
   history: Bid[];
   player: PlayerPosition;
   disabled?: boolean;
-  forceBid?: boolean; // New prop to disable Pass button
+  forceBid?: boolean;
+  isPortrait?: boolean;
 }
 
-const BiddingBox: React.FC<BiddingBoxProps> = ({ onBid, history, player, disabled = false, forceBid = false }) => {
+const BiddingBox: React.FC<BiddingBoxProps> = ({ onBid, history, player, disabled = false, forceBid = false, isPortrait = false }) => {
   const levels = [1, 2, 3, 4, 5, 6, 7];
   const suits = [Suit.Clubs, Suit.Diamonds, Suit.Hearts, Suit.Spades, 'NT'];
 
@@ -35,9 +36,16 @@ const BiddingBox: React.FC<BiddingBoxProps> = ({ onBid, history, player, disable
     return isValidBid({ ...partialBid, player }, history);
   };
 
+  const containerClass = `
+    ${COLORS.PANEL_BG} p-3 rounded-xl shadow-2xl border-2 border-stone-600 
+    w-[400px] pointer-events-auto transition-opacity duration-300
+    ${disabled ? 'opacity-60 grayscale' : 'opacity-100'}
+    ${isPortrait ? 'h-[30vh] overflow-y-auto' : ''}
+  `;
+
   return (
     // Fixed width to sit nicely next to board
-    <div className={`${COLORS.PANEL_BG} p-3 rounded-xl shadow-2xl border-2 border-stone-600 w-[400px] pointer-events-auto transition-opacity duration-300 ${disabled ? 'opacity-60 grayscale' : 'opacity-100'}`}>
+    <div className={containerClass}>
       {/* Pass Button */}
       <div className="mb-3">
         <button

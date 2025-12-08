@@ -71,9 +71,9 @@ function App() {
     const getRelativeSlot = useCallback((targetPos: PlayerPosition, myPos: PlayerPosition | null): 'bottom' | 'left' | 'top' | 'right' => {
         if (!myPos) return 'bottom';
         if (targetPos === myPos) return 'bottom';
-        if (NEXT_TURN[myPos] === targetPos) return 'left';
+        if (NEXT_TURN[myPos] === targetPos) return 'right';
         if (PARTNER[myPos] === targetPos) return 'top';
-        return 'right';
+        return 'left';
     }, []);
 
     const triggerInteraction = useCallback((type: InteractionType, from: PlayerPosition, to: PlayerPosition) => {
@@ -141,17 +141,31 @@ function App() {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
+    // Broadcast System Message (Host Only)
+    // This allows useGameLogic to set a message (like Auto-Redeal) and have it sent to everyone.
+    useEffect(() => {
+        if (isHost && systemMessage) {
+            sendAction({ type: NetworkActionType.MESSAGE, message: systemMessage });
+        }
+    }, [isHost, systemMessage, sendAction]);
+
     const onRequestRedealClick = () => {
         if (!myPosition) return;
-        setHasRequestedRedeal(true);
+        // Manual Redeal Check: Points < 4
         const points = calculateHCP(gameState.hands[myPosition]);
+        if (points >= 4) {
+            setSystemMessage("必須 < 4 點才能申請重洗");
+            setTimeout(() => setSystemMessage(""), 2000);
+            return;
+        }
+        setHasRequestedRedeal(true);
         sendAction({ type: NetworkActionType.REQUEST_REDEAL, position: myPosition, points });
     };
 
     const getPlayerInSlot = useCallback((slot: 'bottom' | 'left' | 'top' | 'right') => {
         if (!myPosition) return null;
         if (slot === 'bottom') return myPosition;
-        if (slot === 'left') return NEXT_TURN[myPosition];
+        if (slot === 'right') return NEXT_TURN[myPosition];
         if (slot === 'top') return PARTNER[myPosition];
         return [PlayerPosition.North, PlayerPosition.East, PlayerPosition.South, PlayerPosition.West].find(p => getRelativeSlot(p, myPosition) === slot);
     }, [myPosition, getRelativeSlot]);
@@ -421,36 +435,35 @@ function App() {
                         isLocked={isInteractionLocked}
                     />
 
-                    {/* Header Info */}
-                    <div className="absolute top-0 left-0 w-full p-2 flex justify-between items-start z-50 pointer-events-none">
-                        <div className="pointer-events-auto mt-2 ml-2">
-                            {isHost && gameState.phase === GamePhase.Idle && (
-                                <button
-                                    onClick={() => copyRoomId(myPeerId)}
-                                    className="bg-black/60 hover:bg-black/80 text-yellow-500 px-4 py-2 rounded-lg border border-yellow-600/50 backdrop-blur-sm shadow-lg flex items-center gap-2 transition-all active:scale-95"
-                                    title="Click to Copy Room ID"
-                                >
-                                    <span className="text-gray-400 text-sm font-bold uppercase">Room ID:</span>
-                                    <span className="font-mono text-xl font-bold tracking-wider">{myPeerId}</span>
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                    </svg>
-                                </button>
-                            )}
+                    {/* Header Info - Room ID (Top Right) */}
+                    {isHost && gameState.phase === GamePhase.Idle && (
+                        <div className="absolute top-2 right-2 z-[100] pointer-events-auto">
+                            <button
+                                onClick={() => copyRoomId(myPeerId)}
+                                className="bg-black/60 hover:bg-black/80 text-yellow-500 px-4 py-2 rounded-lg border border-yellow-600/50 backdrop-blur-sm shadow-lg flex items-center gap-2 transition-all active:scale-95"
+                                title="Click to Copy Room ID"
+                            >
+                                <span className="text-gray-400 text-sm font-bold uppercase">Room ID:</span>
+                                <span className="font-mono text-xl font-bold tracking-wider">{myPeerId}</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                            </button>
                         </div>
+                    )}
 
-                        {isHost && gameState.phase === GamePhase.Idle && (
-                            <div className="pointer-events-auto">
-                                <button
-                                    onClick={() => sendAction({ type: NetworkActionType.DEAL } as any)}
-                                    disabled={gameState.players.length < 4}
-                                    className={`${COLORS.BTN_PRIMARY} ${COLORS.BTN_DISABLED} px-8 py-4 rounded shadow font-bold text-2xl fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[100]`}
-                                >
-                                    {TEXT.DEAL_CARDS}
-                                </button>
-                            </div>
-                        )}
-                    </div>
+                    {/* Deal Button (Centered) */}
+                    {isHost && gameState.phase === GamePhase.Idle && (
+                        <div className="pointer-events-auto">
+                            <button
+                                onClick={() => sendAction({ type: NetworkActionType.DEAL } as any)}
+                                disabled={gameState.players.length < 4}
+                                className={`${COLORS.BTN_PRIMARY} ${COLORS.BTN_DISABLED} px-8 py-4 rounded shadow font-bold text-2xl fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[100]`}
+                            >
+                                {TEXT.DEAL_CARDS}
+                            </button>
+                        </div>
+                    )}
 
                     {/* Main Table (Center) for Playing Cards - Fluid Size */}
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[60]">
@@ -502,7 +515,7 @@ function App() {
                     {/* Bidding UI (Scaled Dynamically for Landscape only) */}
                     {gameState.phase === GamePhase.Bidding && (
                         <div
-                            className={`absolute left-1/2 -translate-x-1/2 z-50 flex gap-4 animate-fade-in-up pointer-events-auto ${isPortrait ? 'flex-col top-0 origin-top pt-2' : 'flex-row bottom-[35%] origin-center'}`}
+                            className={`absolute left-1/2 -translate-x-1/2 z-50 flex gap-4 animate-fade-in-up pointer-events-auto ${isPortrait ? 'flex-col top-[12vh] origin-top pt-2' : 'flex-row bottom-[35%] origin-center'}`}
                             style={{
                                 transform: isPortrait
                                     ? 'translate(-50%, 0)' // No scale in portrait (handled by component sizing)
@@ -521,6 +534,7 @@ function App() {
                                 player={myPosition!}
                                 disabled={gameState.turn !== myPosition}
                                 forceBid={shouldDisablePass()}
+                                isPortrait={isPortrait}
                             />
                         </div>
                     )}

@@ -13,17 +13,17 @@ export const RANK_ORDER = [
 export const SUIT_ORDER = [Suit.Clubs, Suit.Diamonds, Suit.Hearts, Suit.Spades];
 
 export const PLAYER_LABELS = {
-  LEFT: '👈',
-  RIGHT: '👉',
+  LEFT: '👉',
+  RIGHT: '👈',
   PARTNER: '👆',
   ME: '👇'
 };
 
 export const NEXT_TURN: Record<PlayerPosition, PlayerPosition> = {
-  [PlayerPosition.North]: PlayerPosition.East,
-  [PlayerPosition.East]: PlayerPosition.South,
-  [PlayerPosition.South]: PlayerPosition.West,
-  [PlayerPosition.West]: PlayerPosition.North,
+  [PlayerPosition.North]: PlayerPosition.West,
+  [PlayerPosition.West]: PlayerPosition.South,
+  [PlayerPosition.South]: PlayerPosition.East,
+  [PlayerPosition.East]: PlayerPosition.North,
 };
 
 export const PARTNER: Record<PlayerPosition, PlayerPosition> = {
@@ -37,10 +37,10 @@ export const PARTNER: Record<PlayerPosition, PlayerPosition> = {
 export const ASSETS = {
   EMOTES: {
     '😀': 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f600.png',
-    '😂': 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f602.png',
-    '😎': 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f60e.png',
-    '😭': 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f62d.png',
-    '😡': 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f621.png',
+    '😅': 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f605.png',
+    '😮': 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f62e.png',
+    '💩': 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f4a9.png',
+    '🦍': 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f98d.png',
     '🤔': 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f914.png',
   },
   INTERACTIONS: {
@@ -55,12 +55,14 @@ export const ASSETS = {
 export const TEXT = {
   GAME_TITLE: "Jumbo Bridge",
   SUBTITLE: "多人 P2P 連線",
-  NAME_LABEL: "您的暱稱",
+  NAME_LABEL: "名稱",
   HOST_GAME: "建立房間",
   JOIN_GAME: "加入房間",
   CONNECTING: "連線中...",
   CONNECTED: "已連線！加入中...",
   ROOM_ID: "房主 ID",
+  NO_SUCH_ROOM: "無該ID的房間",
+  ROOM_FULL: "房間人數已達4人",
   MY_ID: "ID",
   EMPTY_SLOT: "{空位}",
   PHASE: "階段",
@@ -75,7 +77,7 @@ export const TEXT = {
   READY: "準備",
   PASS: "Pass",
   BID: "喊牌",
-  SURRENDER: "🏳️ 投降",
+  SURRENDER: "投降",
   PLAY_AGAIN: "再來一局",
   DOWNLOAD_LOG: "下載紀錄",
 

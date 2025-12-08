@@ -101,7 +101,8 @@ export enum NetworkActionType {
   SURRENDER = 'ACTION_SURRENDER',
   RESTART = 'ACTION_RESTART',
   EMOTE = 'ACTION_EMOTE',
-  INTERACTION = 'ACTION_INTERACTION'
+  INTERACTION = 'ACTION_INTERACTION',
+  JOIN_REJECT = 'JOIN_REJECT'
 }
 
 // Network Messages
@@ -119,4 +120,5 @@ export type NetworkMessage =
   | { type: NetworkActionType.RESTART }
   // Interactions (Not part of game state/history)
   | { type: NetworkActionType.EMOTE; emoji: string; position: PlayerPosition }
-  | { type: NetworkActionType.INTERACTION; interactionType: InteractionType; from: PlayerPosition; to: PlayerPosition };
+  | { type: NetworkActionType.INTERACTION; interactionType: InteractionType; from: PlayerPosition; to: PlayerPosition }
+  | { type: NetworkActionType.JOIN_REJECT; reason: string };

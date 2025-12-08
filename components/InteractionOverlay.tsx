@@ -128,7 +128,7 @@ const InteractionOverlay: React.FC<InteractionOverlayProps> = memo(({
                 </div>
             )}
 
-            <div className={`absolute z-50 flex gap-4 pointer-events-auto ${isPortrait ? 'top-[2vmin] left-[2vmin] flex-col' : 'bottom-[2vmin] right-[2vmin] flex-row'}`}>
+            <div className={`absolute z-[60] flex gap-4 pointer-events-auto ${isPortrait ? 'top-[2vmin] left-[2vmin] flex-row' : 'bottom-[2vmin] right-[2vmin] flex-row'}`}>
                 {/* Blue Frame - Emotes */}
                 <div className="relative">
                     <button

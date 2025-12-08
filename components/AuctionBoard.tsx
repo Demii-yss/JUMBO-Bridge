@@ -45,9 +45,9 @@ const AuctionBoard: React.FC<AuctionBoardProps> = ({ history, dealer, myPosition
     return PLAYER_LABELS.RIGHT;
   };
 
-  // Portrait: 350px (175% of previous 200px)
+  // Portrait: 28vh
   // Landscape: 400px (Standard)
-  const heightClass = isPortrait ? 'h-[350px]' : 'h-[400px]';
+  const heightClass = isPortrait ? 'h-[28vh]' : 'h-[400px]';
 
   return (
     // Width adjusted to fit side-by-side with BiddingBox, Height dynamic
