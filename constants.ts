@@ -54,7 +54,6 @@ export const ASSETS = {
 // Localization
 export const TEXT = {
   GAME_TITLE: "Jumbo Bridge",
-  SUBTITLE: "多人 P2P 連線",
   NAME_LABEL: "名稱",
   HOST_GAME: "建立房間",
   JOIN_GAME: "加入房間",
@@ -64,17 +63,43 @@ export const TEXT = {
   NO_SUCH_ROOM: "無該ID的房間",
   ROOM_FULL: "房間人數已達4人",
   MY_ID: "ID",
-  EMPTY_SLOT: "{空位}",
+  EMPTY_SLOT: "(等待加入)",
   PHASE: "階段",
   ME: "我",
   COPIED: "已複製!",
   CLICK_TO_COPY: "複製",
 
+  // --- Login / Home ---
+  LOGIN_TITLE: "JUMBO Bridge",
+  LOGIN_LABEL_ID: "Player ID",
+  LOGIN_PLACEHOLDER_ID: "12345678",
+  LOGIN_ERROR_ID_LENGTH: "ID must be exactly 8 digits.",
+  LOGIN_DESC: "Enter an 8-digit number to identify yourself.",
+  LOGIN_BTN: "Login",
+  FOOTER_VERSION: "JUMBO Bridge v0.0",
+
+  // --- Lobby ---
+  LOBBY_ID_LABEL: "ID",
+  LOBBY_NAME_LABEL: "Name",
+  LOBBY_EDIT_TOOLTIP: "Click to edit",
+  LOBBY_LOGOUT_TITLE: "Logout / Exit to Home",
+  LOBBY_GAME_ROOMS: "Game Rooms",
+  LOBBY_ROOM_PREFIX: "Room",
+  LOBBY_RULES: "Standard Rules • 4 Players",
+  LOBBY_FULL: "FULL",
+  LOBBY_PLAYERS_SUFFIX: "Players",
+  LOBBY_LOCKED: "Locked",
+  LOBBY_OPEN: "Open",
+  LOBBY_WAIT_PLAYERS: "Wait for 4 Players",
+
   // Actions
   DEAL_CARDS: "發牌",
   RE_DEAL: "重新發牌",
   REQUEST_REDEAL: "重洗",
+  REDEAL_LIMIT_MSG: "必須 < 4 點才能申請重洗",
   READY: "準備",
+  CLICK_TO_READY: "CLICK TO READY",
+  READY_EXCLAMATION: "READY!",
   PASS: "Pass",
   BID: "喊牌",
   SURRENDER: "投降",
@@ -111,6 +136,9 @@ export const TEXT = {
   [PlayerPosition.East]: "東",
   [PlayerPosition.South]: "南",
   [PlayerPosition.West]: "西",
+
+  // Waiting
+  PLAYERS_READY: "Players Ready",
 
   // Phases
   PHASE_LOBBY: "大廳",

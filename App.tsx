@@ -181,7 +181,7 @@ function App() {
         // Manual Redeal Check: Points < 4
         const points = calculateHCP(gameState.hands[myPosition]);
         if (points >= 4) {
-            setSystemMessage("必須 < 4 點才能申請重洗");
+            setSystemMessage(TEXT.REDEAL_LIMIT_MSG);
             setTimeout(() => setSystemMessage(""), 2000);
             return;
         }
@@ -551,10 +551,10 @@ function App() {
                                 >
                                     {TEXT.DEAL_CARDS} {/* Reuse Text or "Start Game" */}
                                     {(gameState.players.length < 4) && (
-                                        <div className="text-sm font-normal mt-1 opacity-80">(Wait for 4 Players)</div>
+                                        <div className="text-sm font-normal mt-1 opacity-80">({TEXT.LOBBY_WAIT_PLAYERS})</div>
                                     )}
                                     {(gameState.players.length === 4 && gameState.readyPlayers.length < 3) && (
-                                        <div className="text-sm font-normal mt-1 opacity-80">({gameState.readyPlayers.length}/{3} Players Ready)</div>
+                                        <div className="text-sm font-normal mt-1 opacity-80">({gameState.readyPlayers.length}/{3} {TEXT.PLAYERS_READY})</div>
                                     )}
                                 </button>
                             ) : (
@@ -566,7 +566,7 @@ function App() {
                                         : 'bg-gray-600 hover:bg-gray-500 text-white animate-pulse' // Not Ready Style
                                         }`}
                                 >
-                                    {gameState.readyPlayers.includes(myPosition!) ? "READY!" : "CLICK TO READY"}
+                                    {gameState.readyPlayers.includes(myPosition!) ? TEXT.READY_EXCLAMATION : TEXT.CLICK_TO_READY}
                                 </button>
                             )}
                         </div>

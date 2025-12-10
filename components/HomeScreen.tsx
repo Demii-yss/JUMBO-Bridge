@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { COLORS } from '../colors'; // Ensure you have this or similar for styles
+import { TEXT } from '../constants';
 
 interface HomeScreenProps {
     onLogin: (id: string) => void;
@@ -19,7 +20,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogin }) => {
     const handleLogin = () => {
         const id = inputValue.trim();
         if (!/^\d{8}$/.test(id)) {
-            setError('ID must be exactly 8 digits.');
+            setError(TEXT.LOGIN_ERROR_ID_LENGTH);
             return;
         }
         localStorage.setItem('jumbo_player_id', id);
@@ -35,10 +36,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogin }) => {
             <div className="absolute inset-0 pointer-events-none opacity-30 bg-[url('https://www.transparenttextures.com/patterns/felt.png')]"></div>
 
             <div className="z-10 bg-black/50 p-12 rounded-2xl shadow-2xl backdrop-blur-sm border border-yellow-500/30 flex flex-col gap-6 w-[400px]">
-                <h1 className="text-4xl font-bold text-center text-yellow-400 mb-4">JUMBO Bridge</h1>
+                <h1 className="text-4xl font-bold text-center text-yellow-400 mb-4">{TEXT.LOGIN_TITLE}</h1>
 
                 <div className="flex flex-col gap-2">
-                    <label className="text-gray-300 font-bold uppercase tracking-wider text-sm">Player ID</label>
+                    <label className="text-gray-300 font-bold uppercase tracking-wider text-sm">{TEXT.LOGIN_LABEL_ID}</label>
                     <input
                         type="text"
                         value={inputValue}
@@ -48,12 +49,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogin }) => {
                             setError('');
                         }}
                         onKeyDown={handleKeyDown}
-                        placeholder="12345678" // Updated Placeholder
+                        placeholder={TEXT.LOGIN_PLACEHOLDER_ID} // Updated Placeholder
                         className="bg-black/40 border-2 border-gray-600 focus:border-yellow-500 rounded-lg p-4 text-center text-3xl font-mono tracking-[0.2em] text-white outline-none transition-colors placeholder-gray-700"
                         autoFocus
                     />
                     {error && <p className="text-red-400 text-sm mt-1 text-center font-bold animate-pulse">{error}</p>}
-                    <p className="text-gray-500 text-xs text-center mt-1">Enter an 8-digit number to identify yourself.</p>
+                    <p className="text-gray-500 text-xs text-center mt-1">{TEXT.LOGIN_DESC}</p>
                 </div>
 
                 <button
@@ -65,12 +66,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogin }) => {
                             : 'bg-gray-800 text-gray-500 cursor-not-allowed'}
                     `}
                 >
-                    Login
+                    {TEXT.LOGIN_BTN}
                 </button>
             </div>
 
             <div className="absolute bottom-8 text-gray-500 text-sm">
-                JUMBO Bridge v0.0
+                {TEXT.FOOTER_VERSION}
             </div>
         </div>
     );

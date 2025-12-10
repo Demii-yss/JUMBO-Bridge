@@ -43,15 +43,8 @@ export const useBotLogic = ({ gameState, isHost, myPosition, sendAction }: UseBo
             if (pendingBots.length > 0) {
                 const timer = setTimeout(() => {
                     const botToReady = pendingBots[0];
-                    // Request redeal if hand is terrible or too good
-                    const hand = gameState.hands[botToReady.position];
-                    const hcp = hand.reduce((sum, card) => sum + getHCP(card.rank), 0);
-
-                    if (hcp < 4 || hcp > 16) {
-                        sendAction({ type: NetworkActionType.REQUEST_REDEAL, position: botToReady.position, points: hcp });
-                    } else {
-                        sendAction({ type: NetworkActionType.READY, position: botToReady.position });
-                    }
+                    // Always confirm hand (No Redeal)
+                    sendAction({ type: NetworkActionType.READY, position: botToReady.position });
                 }, 500);
                 return () => clearTimeout(timer);
             }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { COLORS } from '../colors';
+import { TEXT } from '../constants';
 
 interface LobbyScreenProps {
     playerId: string;
@@ -56,14 +57,14 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
             <div className="w-full z-10 bg-black/60 backdrop-blur-md border-b border-gray-700 p-4 flex justify-between items-center px-8 shadow-xl">
                 <div className="flex items-center gap-6">
                     <div className="flex flex-col">
-                        <span className="text-gray-400 text-xs font-bold uppercase tracking-wider">ID</span>
+                        <span className="text-gray-400 text-xs font-bold uppercase tracking-wider">{TEXT.LOBBY_ID_LABEL}</span>
                         <span className="font-mono text-xl text-yellow-500 font-bold">{playerId}</span>
                     </div>
 
                     <div className="h-8 w-px bg-gray-600 mx-2"></div>
 
                     <div className="flex flex-col group relative">
-                        <span className="text-gray-400 text-xs font-bold uppercase tracking-wider">Name</span>
+                        <span className="text-gray-400 text-xs font-bold uppercase tracking-wider">{TEXT.LOBBY_NAME_LABEL}</span>
                         {isEditingName ? (
                             <input
                                 autoFocus
@@ -77,7 +78,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                             <div
                                 className="text-2xl font-bold cursor-pointer hover:text-yellow-200 transition-colors flex items-center gap-2"
                                 onClick={() => setIsEditingName(true)}
-                                title="Click to edit"
+                                title={TEXT.LOBBY_EDIT_TOOLTIP}
                             >
                                 {playerName}
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 opacity-0 group-hover:opacity-50 transition-opacity" viewBox="0 0 20 20" fill="currentColor">
@@ -91,7 +92,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                 <button
                     onClick={onLogout}
                     className="group bg-gray-800 hover:bg-red-600/80 p-3 rounded-lg transition-all shadow-lg active:scale-95"
-                    title="Logout / Exit to Home"
+                    title={TEXT.LOBBY_LOGOUT_TITLE}
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-400 group-hover:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -101,7 +102,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
 
             {/* Room List */}
             <div className="flex-1 w-full max-w-4xl p-8 z-10 overflow-y-auto custom-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                <h2 className="text-3xl font-bold text-gray-300 mb-6 text-center">Game Rooms</h2>
+                <h2 className="text-3xl font-bold text-gray-300 mb-6 text-center">{TEXT.LOBBY_GAME_ROOMS}</h2>
 
                 <div className="flex flex-col gap-4 pb-20">
                     {roomIds.map((id) => {
@@ -126,17 +127,17 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                             >
                                 <div className="flex justify-between items-center">
                                     <div>
-                                        <h3 className="text-2xl font-bold text-white group-hover:text-green-400 transition-colors">Room {id}</h3>
-                                        <p className="text-gray-400 text-sm mt-1">Standard Rules • 4 Players</p>
+                                        <h3 className="text-2xl font-bold text-white group-hover:text-green-400 transition-colors">{TEXT.LOBBY_ROOM_PREFIX} {id}</h3>
+                                        <p className="text-gray-400 text-sm mt-1">{TEXT.LOBBY_RULES}</p>
                                     </div>
 
                                     <div className="flex items-center gap-6">
                                         <div className={`text-right ${isFull ? 'text-red-400' : 'text-gray-300'}`}>
                                             <div className="font-bold text-xl">
-                                                {isFull ? 'FULL' : `${count}/4 Players`}
+                                                {isFull ? TEXT.LOBBY_FULL : `${count}/4 ${TEXT.LOBBY_PLAYERS_SUFFIX}`}
                                             </div>
                                             <div className="text-xs uppercase tracking-wider opacity-60">
-                                                {isFull ? 'Locked' : 'Open'}
+                                                {isFull ? TEXT.LOBBY_LOCKED : TEXT.LOBBY_OPEN}
                                             </div>
                                         </div>
 
