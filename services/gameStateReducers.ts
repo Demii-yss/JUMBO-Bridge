@@ -3,6 +3,13 @@ import { NEXT_TURN, PARTNER } from '../constants';
 import { getTrickWinner } from './bridgeLogic';
 
 export const processReadyLogic = (prev: GameState, position: PlayerPosition): GameState => {
+    // If logically we are in Finished phase, "Ready" means "Back to Room"
+    if (prev.phase === GamePhase.Finished) {
+        if (prev.readyPlayers.includes(position)) return prev;
+        const newReady = [...prev.readyPlayers, position];
+        return { ...prev, readyPlayers: newReady };
+    }
+
     if (prev.phase !== GamePhase.Reviewing) return prev;
     if (prev.readyPlayers.includes(position)) return prev;
 
@@ -126,7 +133,8 @@ export const processPlayLogic = (prev: GameState, card: Card, position: PlayerPo
                 currentTrick: [],
                 playHistory,
                 phase: newPhase,
-                winningTeam
+                winningTeam,
+                readyPlayers: [] // Reset Ready Players
             };
         }
 
@@ -181,7 +189,8 @@ export const processPlayLogic = (prev: GameState, card: Card, position: PlayerPo
                 tricksWon: tricksWon, // Return updated scores
                 playHistory: finalHistory,
                 phase: GamePhase.Finished,
-                winningTeam: wTeam
+                winningTeam: wTeam,
+                readyPlayers: [] // Reset Ready Players
             };
         }
     }
@@ -203,6 +212,7 @@ export const processSurrender = (prev: GameState, position: PlayerPosition): Gam
         ...prev,
         phase: GamePhase.Finished,
         winningTeam,
-        surrendered: true
+        surrendered: true,
+        readyPlayers: [] // Reset Ready Players
     };
 };

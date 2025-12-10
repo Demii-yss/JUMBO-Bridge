@@ -17,6 +17,11 @@ const GameOverModal: React.FC<GameOverModalProps> = memo(({
     sendAction,
     downloadHistory
 }) => {
+    // If I have already clicked "Back to Room" (am Ready), hide this modal
+    if (gameState.readyPlayers.includes(myPosition)) {
+        return null;
+    }
+
     return (
         <div className="absolute inset-0 z-[100] bg-black/80 flex items-center justify-center">
             <div className={`p-10 rounded-2xl shadow-2xl max-w-4xl w-full border-4 ${gameState.winningTeam === (['North', 'South'].includes(myPosition!) ? 'NS' : 'EW') ? 'bg-green-900 border-green-500' : 'bg-red-900 border-red-500'}`}>
@@ -43,11 +48,13 @@ const GameOverModal: React.FC<GameOverModalProps> = memo(({
                     <button onClick={downloadHistory} className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-8 rounded-xl text-2xl">
                         {TEXT.DOWNLOAD_LOG}
                     </button>
-                    {isHost && (
-                        <button onClick={() => sendAction({ type: NetworkActionType.RESTART } as any)} className="bg-yellow-600 hover:bg-yellow-500 text-black font-bold py-4 px-8 rounded-xl text-2xl">
-                            {TEXT.PLAY_AGAIN}
-                        </button>
-                    )}
+
+                    <button
+                        onClick={() => sendAction({ type: NetworkActionType.READY, position: myPosition } as any)}
+                        className="bg-yellow-600 hover:bg-yellow-500 text-black font-bold py-4 px-8 rounded-xl text-2xl"
+                    >
+                        {TEXT.BACK_TO_ROOM || 'Back to Room'}
+                    </button>
                 </div>
             </div>
         </div>

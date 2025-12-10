@@ -1,0 +1,140 @@
+
+import express from 'express';
+import { createServer } from 'http';
+import { Server } from "socket.io";
+import roomManager from './roomManager.js';
+
+const app = express();
+const server = createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    }
+});
+
+// 2. Session Management (Single Session & Reconnect)
+const userSessions = new Map(); // Global Map<userId, socketId>
+
+io.on('connection', (socket) => {
+    console.log('User connected:', socket.id);
+
+    // 1. Lobby Stats Probe
+    socket.on('QUERY_LOBBY_STATS', () => {
+        const stats = {};
+        for (let i = 1; i <= 5; i++) {
+            const roomId = `JUMBO-BRIDGE-ROOM-${i}`;
+            const room = roomManager.getRoom(roomId);
+            stats[roomId] = room ? room.players.length : 0;
+        }
+        socket.emit('LOBBY_STATS', stats);
+    });
+
+    socket.on('REGISTER_SESSION', ({ userId }) => {
+        console.log(`[SESSION] Register request: ${userId} (Socket: ${socket.id})`);
+        // A. Conflict Resolution (Kick old session)
+        if (userSessions.has(userId)) {
+            const oldSocketId = userSessions.get(userId);
+            if (oldSocketId !== socket.id) {
+                console.log(`[SESSION] Kicking old socket ${oldSocketId} for user ${userId}`);
+                const oldSocket = io.sockets.sockets.get(oldSocketId);
+                if (oldSocket) {
+                    oldSocket.emit('FORCE_LOGOUT', { reason: 'Logged in from another location' });
+                    oldSocket.disconnect(true); // Close underlying connection
+                }
+            }
+        }
+
+        // B. Register New Session
+        userSessions.set(userId, socket.id);
+
+        // C. Check for Existing Game (Reconnect)
+        const roomId = roomManager.findRoomByUser(userId);
+        if (roomId) {
+            socket.emit('SESSION_FOUND', { roomId: roomId.replace('JUMBO-BRIDGE-ROOM-', '') });
+        }
+    });
+
+    socket.on('disconnect', () => {
+        // Clean up userSessions map
+        for (const [uid, sid] of userSessions.entries()) {
+            if (sid === socket.id) {
+                userSessions.delete(uid);
+                break;
+            }
+        }
+
+        console.log('User disconnected:', socket.id);
+        const result = roomManager.handleDisconnect(socket.id);
+        if (result) {
+            io.to(result.roomId).emit('STATE_UPDATE', { state: result.room });
+        }
+    });
+
+    // 3. Join Room
+    socket.on('JOIN_REQUEST', ({ roomId, name, userId }) => {
+        // Enforce 1 Room per User
+        const safeUserId = userId || socket.id;
+
+        // Check if user is in ANY other room and remove/leave them?
+        for (const [rid, room] of roomManager.rooms) {
+            if (rid !== roomId && room.players.some(p => p.id === safeUserId)) {
+                const updatedOldRoom = roomManager.removePlayer(rid, safeUserId);
+                io.to(rid).emit('STATE_UPDATE', { state: updatedOldRoom });
+                socket.leave(rid);
+            }
+        }
+
+        const player = { socketId: socket.id, userId: safeUserId, name };
+        const result = roomManager.addPlayer(roomId, player);
+        console.log(`[JOIN] ${safeUserId} -> ${roomId}: Success=${result.success} Error=${result.error}`);
+
+        if (result.success) {
+            socket.join(roomId);
+
+            const addedPlayer = result.room.players.find(p => p.id === safeUserId);
+            if (!addedPlayer) {
+                console.error("CRITICAL: Player added but not found in room state!");
+                socket.emit('JOIN_REJECT', { reason: "Internal Server Error: Player State Lost" });
+                return;
+            }
+
+            socket.emit('JOIN_ACCEPT', {
+                state: result.room,
+                yourPosition: addedPlayer.position
+            });
+
+            io.to(roomId).emit('STATE_UPDATE', { state: result.room });
+        } else {
+            console.log(`[JOIN REJECT] ${result.error}`);
+            socket.emit('JOIN_REJECT', { reason: result.error });
+        }
+    });
+
+    socket.on('STATE_UPDATE', ({ roomId, state }) => {
+        roomManager.updateRoom(roomId, state);
+        socket.to(roomId).emit('STATE_UPDATE', { state });
+    });
+
+    // Generic Action Relay (Chat, Emotes)
+    socket.on('ACTION_RELAY', ({ roomId, action }) => {
+        socket.to(roomId).emit('ACTION_RELAY', action);
+    });
+
+    socket.on('LEAVE_ROOM', ({ userId }) => {
+        for (const [rid, room] of roomManager.rooms) {
+            if (room.players.some(p => p.id === userId)) {
+                const updatedRoom = roomManager.removePlayer(rid, userId);
+                socket.leave(rid);
+                io.to(rid).emit('STATE_UPDATE', { state: updatedRoom });
+                break;
+            }
+        }
+    });
+
+});
+
+const PORT = 3000;
+server.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+});

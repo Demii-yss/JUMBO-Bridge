@@ -17,6 +17,7 @@ interface PlayerBadgeProps {
     uniqueNames: Record<string, string>;
     isPortrait: boolean;
     slot: string;
+    isReady?: boolean; // New Prop
 }
 
 const PlayerBadge: React.FC<PlayerBadgeProps> = ({
@@ -32,7 +33,8 @@ const PlayerBadge: React.FC<PlayerBadgeProps> = ({
     handleInteraction,
     uniqueNames,
     isPortrait,
-    slot
+    slot,
+    isReady
 }) => {
     let badgeClass = 'pointer-events-auto z-50 text-white font-bold border-2 border-stone-600 shadow-xl backdrop-blur-md rounded-lg px-6 py-2 transition-all cursor-pointer relative';
     badgeClass += ` text-[2.5vmin]`; // Fluid Font Size
@@ -44,6 +46,11 @@ const PlayerBadge: React.FC<PlayerBadgeProps> = ({
     else badgeClass += ' bg-stone-800/80';
 
     if (showInteractionHighlight) badgeClass += ' ring-4 ring-red-500 bg-red-900/50 scale-110 animate-pulse';
+
+    // Game End: Red Name Box if not ready (not back to room)
+    if (gamePhase === GamePhase.Finished && isReady === false) {
+        badgeClass += ' bg-red-700/90 border-red-500 animate-pulse';
+    }
 
     const displayName = profile ? uniqueNames[profile.id] : TEXT.EMPTY_SLOT;
     const nameColor = isDeclarer ? 'text-yellow-400' : 'text-white';

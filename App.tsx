@@ -13,14 +13,22 @@ import { useMultiplayer } from './hooks/useMultiplayer';
 import { useBotLogic } from './hooks/useBotLogic';
 import { getTrickWinner, calculateHCP } from './services/bridgeLogic';
 
-// Extracted Components
-import GameLobby from './components/GameLobby';
+// Components
+import { HomeScreen } from './components/HomeScreen';
+import { LobbyScreen } from './components/LobbyScreen';
 import GameOverModal from './components/GameOverModal';
 import InteractionOverlay from './components/InteractionOverlay';
 import GameTable from './components/GameTable';
 import ServerMonitor from './components/ServerMonitor';
 
+type AppView = 'HOME' | 'LOBBY' | 'ROOM';
+
 function App() {
+    // --- View State ---
+    const [currentView, setCurrentView] = useState<AppView>('HOME');
+    const [playerId, setPlayerId] = useState<string>('');
+    const [selectedRoomId, setSelectedRoomId] = useState<number | null>(null);
+
     // --- Local State ---
     const [myPosition, setMyPosition] = useState<PlayerPosition | null>(null);
     const [playerName, setPlayerName] = useState<string>('Player');
@@ -101,8 +109,12 @@ function App() {
         connectToHost,
         copyRoomId,
         sendAction,
-        addBot, // Get addBot
-        removeBot // Get removeBot
+        addBot,
+        removeBot,
+        joinRoom, // New function to implement
+        leaveRoom,
+        checkLobbyStats,
+        roomCounts
     } = useMultiplayer({
         gameState,
         setGameState,
@@ -115,12 +127,14 @@ function App() {
         triggerInteraction,
         addLog,
         setSystemMessage,
-        handleRedealRequest
+        handleRedealRequest,
+        userId: playerId // Pass the User Input ID as the unique Session ID
     });
 
     // --- Derived State & Helpers ---
 
-    const isHost = myPosition === PlayerPosition.North;
+    const myProfile = gameState.players.find(p => p.position === myPosition);
+    const isHost = myProfile?.isHost || false;
     const isMyTurnToPlay = gameState.turn === myPosition && gameState.phase === GamePhase.Playing;
     const currentTrickWinner = gameState.currentTrick.length > 0 ? getTrickWinner(gameState.currentTrick, gameState.contract?.suit) : null;
 
@@ -284,32 +298,91 @@ function App() {
         setSelectedItemType(null);
     };
 
-
-
     const isPortrait = dimensions.height > dimensions.width;
     const safeScale = Math.min(dimensions.width / 1366, dimensions.height / 768);
 
-    // --- Render ---
+    // --- Navigation Handlers ---
 
-    if (myPosition === null || gameState.phase === GamePhase.Lobby) {
+    const handleLogin = (id: string) => {
+        setPlayerId(id);
+        setCurrentView('LOBBY');
+        // Load name if saved? For now default
+    };
+
+    const handleJoinRoom = (roomNumber: number) => {
+        setSelectedRoomId(roomNumber);
+        setCurrentView('ROOM');
+        if (joinRoom) {
+            joinRoom(roomNumber.toString());
+        }
+    };
+
+    const handleExitRoom = () => {
+        if (leaveRoom) leaveRoom();
+        setSelectedRoomId(null);
+        setCurrentView('LOBBY');
+        setMyPosition(null);
+        setGameState(prev => ({ ...prev, players: [], phase: GamePhase.Lobby }));
+    };
+
+    // Auto-Switch to Room if Position Set (Reconnection Handler)
+    useEffect(() => {
+        if (myPosition && currentView !== 'ROOM') {
+            setCurrentView('ROOM');
+        }
+    }, [myPosition, currentView]);
+
+    const handleLogout = () => {
+        if (leaveRoom) leaveRoom(); // Clean up if active
+        setPlayerId('');
+        setCurrentView('HOME');
+    };
+
+    // --- Render Based on View ---
+
+    if (currentView === 'HOME') {
+        return <HomeScreen onLogin={handleLogin} />;
+    }
+
+    if (currentView === 'LOBBY') {
+        return (
+            <LobbyScreen
+                playerId={playerId}
+                playerName={playerName}
+                setPlayerName={setPlayerName}
+                onLogout={handleLogout}
+                onJoinRoom={handleJoinRoom}
+                checkLobbyStats={checkLobbyStats}
+                roomCounts={roomCounts}
+            />
+        );
+    }
+
+    // --- ROOM VIEW (Direct to Green Table) ---
+    // Show Loading/Connecting overlay until myPosition is set
+    if (myPosition === null) {
         return (
             <ServerMonitor>
-                <GameLobby
-                    playerName={playerName}
-                    setPlayerName={setPlayerName}
-                    setMyPosition={setMyPosition}
-                    setGameState={setGameState}
-                    myPeerId={myPeerId}
-                    hostPeerId={hostPeerId}
-                    setHostPeerId={setHostPeerId}
-                    connectToHost={connectToHost}
-                    copyRoomId={copyRoomId}
-                    statusMsg={statusMsg}
-                    debugLogs={debugLogs}
-                />
+                <div className={`fixed inset-0 ${COLORS.TABLE_BG} flex flex-col justify-center items-center text-white`}>
+                    <div className="absolute inset-0 pointer-events-none opacity-30 bg-[url('https://www.transparenttextures.com/patterns/felt.png')]"></div>
+                    <h2 className="text-3xl font-bold animate-pulse text-yellow-400 mb-4">{statusMsg || TEXT.CONNECTING}</h2>
+                    <button
+                        className="mt-8 bg-red-600/80 hover:bg-red-600 text-white px-6 py-2 rounded shadow font-bold z-50 pointer-events-auto"
+                        onClick={handleExitRoom}
+                    >
+                        {TEXT.EXIT_ROOM}
+                    </button>
+                    {/* Debug Logs for issue tracking */}
+                    <div className="fixed bottom-0 right-0 p-2 text-xs text-gray-500 max-w-sm">
+                        {debugLogs.map((l, i) => <div key={i}>{l}</div>)}
+                    </div>
+                </div>
             </ServerMonitor>
         );
     }
+
+    // Once position is set, we render the Table (Green Screen) directly.
+    // GameLobby (Black Screen) is completely bypassed.
 
     return (
         <ServerMonitor>
@@ -317,6 +390,16 @@ function App() {
                 className={`fixed inset-0 ${COLORS.TABLE_BG} overflow-hidden flex justify-center items-center relative select-none font-sans`}
                 style={{ width: dimensions.width, height: dimensions.height }}
             >
+                {/* Exit Room Button (Visual Adjustment for Green Table) */}
+                {gameState.phase !== GamePhase.Playing && gameState.phase !== GamePhase.Bidding && gameState.phase !== GamePhase.Reviewing && (
+                    <button
+                        className="fixed top-4 left-4 z-[200] bg-red-800/60 hover:bg-red-700/80 text-white px-4 py-2 rounded shadow font-bold text-sm backdrop-blur-sm border border-red-500/30 transition-all"
+                        onClick={handleExitRoom}
+                    >
+                        {TEXT.EXIT_ROOM}
+                    </button>
+                )}
+
                 <div className="absolute inset-0 pointer-events-none opacity-30 bg-[url('https://www.transparenttextures.com/patterns/felt.png')]"></div>
 
                 <div
@@ -435,32 +518,20 @@ function App() {
                         isLocked={isInteractionLocked}
                     />
 
-                    {/* Header Info - Room ID (Top Right) */}
-                    {isHost && gameState.phase === GamePhase.Idle && (
-                        <div className="absolute top-2 right-2 z-[100] pointer-events-auto">
-                            <button
-                                onClick={() => copyRoomId(myPeerId)}
-                                className="bg-black/60 hover:bg-black/80 text-yellow-500 px-4 py-2 rounded-lg border border-yellow-600/50 backdrop-blur-sm shadow-lg flex items-center gap-2 transition-all active:scale-95"
-                                title="Click to Copy Room ID"
-                            >
-                                <span className="text-gray-400 text-sm font-bold uppercase">Room ID:</span>
-                                <span className="font-mono text-xl font-bold tracking-wider">{myPeerId}</span>
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                </svg>
-                            </button>
-                        </div>
-                    )}
+
 
                     {/* Deal Button (Centered) */}
-                    {isHost && gameState.phase === GamePhase.Idle && (
+                    {isHost && (gameState.phase === GamePhase.Idle || gameState.phase === GamePhase.Lobby) && (
                         <div className="pointer-events-auto">
                             <button
                                 onClick={() => sendAction({ type: NetworkActionType.DEAL } as any)}
                                 disabled={gameState.players.length < 4}
-                                className={`${COLORS.BTN_PRIMARY} ${COLORS.BTN_DISABLED} px-8 py-4 rounded shadow font-bold text-2xl fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[100]`}
+                                className={`${COLORS.BTN_PRIMARY} ${gameState.players.length < 4 ? COLORS.BTN_DISABLED : ''} px-8 py-4 rounded shadow font-bold text-2xl fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[100] transition-all`}
                             >
                                 {TEXT.DEAL_CARDS}
+                                {gameState.players.length < 4 && (
+                                    <div className="text-sm font-normal mt-1 opacity-80">(Need {4 - gameState.players.length} more)</div>
+                                )}
                             </button>
                         </div>
                     )}

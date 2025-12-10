@@ -80,6 +80,8 @@ export const TEXT = {
   SURRENDER: "投降",
   PLAY_AGAIN: "再來一局",
   DOWNLOAD_LOG: "下載紀錄",
+  BACK_TO_ROOM: "回到房間",
+  EXIT_ROOM: "退出房間",
 
   // Interactions
   CLICK_PLAYER_TO_SEND: "點擊一位玩家發送!",

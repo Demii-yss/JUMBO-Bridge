@@ -1,10 +1,8 @@
-import React, { useState, useRef, useEffect, MutableRefObject } from 'react';
+import React, { useState, useRef, useEffect, MutableRefObject, useCallback } from 'react';
+import { io, Socket } from 'socket.io-client';
 import { NetworkMessage, PlayerPosition, GameState, GamePhase, Bid, Card, InteractionType, PlayerProfile, NetworkActionType } from '../types';
 import { TEXT } from '../constants';
 import { processBidLogic, processPlayLogic, processReadyLogic, processSurrender } from '../services/gameStateReducers';
-
-// Declare PeerJS globally
-declare const Peer: any;
 
 interface UseMultiplayerProps {
     gameState: GameState;
@@ -17,7 +15,6 @@ interface UseMultiplayerProps {
     triggerEmote: (pos: PlayerPosition, emoji: string) => void;
     triggerInteraction: (type: InteractionType, from: PlayerPosition, to: PlayerPosition) => void;
     addLog: (msg: string) => void;
-    // New props for decoupled logic
     setSystemMessage: (msg: string) => void;
     handleRedealRequest: (data: { position: PlayerPosition; points?: number }, broadcast: (msg: string) => void) => void;
 }
@@ -34,236 +31,219 @@ export const useMultiplayer = ({
     triggerInteraction,
     addLog,
     setSystemMessage,
-    handleRedealRequest
-}: UseMultiplayerProps) => {
-    const [myPeerId, setMyPeerId] = useState<string>('');
-    const [hostPeerId, setHostPeerId] = useState<string>('');
+    handleRedealRequest,
+    userId // Received from App (Input ID)
+}: UseMultiplayerProps & { userId: string }) => {
+    const [socket, setSocket] = useState<Socket | null>(null);
     const [statusMsg, setStatusMsg] = useState<string>('');
-    const [copyFeedback, setCopyFeedback] = useState<string>('');
+    const [roomCounts, setRoomCounts] = useState<Record<string, number>>({});
 
-    const peerRef = useRef<any>(null);
-    const connRef = useRef<any>(null);
-    const clientsRef = useRef<any[]>([]);
+    // Track current room for logic
+    const currentRoomId = useRef<string | null>(null);
 
-    const isHost = myPosition === PlayerPosition.North;
+    const isHost = gameState.players.find(p => p.id === userId)?.isHost || false;
 
-    // --- Networking Setup ---
-
-    const initPeer = () => {
-        if (peerRef.current) return;
-        addLog("Init PeerJS...");
-
-        // Generate 3-digit ID (100-999)
-        const myId = Math.floor(100 + Math.random() * 900).toString();
-
-        const peer = new Peer(myId, {
-            host: '0.peerjs.com',
-            port: 443,
-            path: '/',
-            secure: true,
-            debug: 2,
-            config: {
-                iceServers: [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:global.stun.twilio.com:3478' }
-                ]
-            }
-        });
-
-        peer.on('open', (id: string) => {
-            console.log("Peer Open:", id);
-            addLog(`Peer Open: ${id}`);
-            setMyPeerId(id);
-            setStatusMsg("Connected to Server");
-        });
-
-        peer.on('disconnected', () => {
-            console.log("Peer Disconnected");
-            setStatusMsg("Disconnected from Server");
-        });
-
-        peer.on('close', () => {
-            setStatusMsg("Connection Closed");
-        });
-
-        peer.on('connection', (conn: any) => {
-            conn.on('data', (data: NetworkMessage) => {
-                handleHostReceivedDataRef.current(data, conn);
-            });
-            conn.on('open', () => {
-                clientsRef.current.push(conn);
-            });
-            conn.on('close', () => {
-                clientsRef.current = clientsRef.current.filter(c => c !== conn);
-            });
-        });
-
-        peer.on('error', (err: any) => {
-            console.error("Peer Error:", err);
-            addLog(`Error: ${err.type}`);
-            if (err.type === 'peer-unavailable') {
-                setStatusMsg(TEXT.NO_SUCH_ROOM);
-            } else {
-                setStatusMsg(`Connection Error: ${err.type}`);
-            }
-        });
-
-        peerRef.current = peer;
-    };
-
+    // --- Init Socket ---
     useEffect(() => {
-        initPeer();
-        return () => {
-            if (peerRef.current) {
-                peerRef.current.removeAllListeners();
-                peerRef.current.destroy();
-                peerRef.current = null;
+        const newSocket = io('http://localhost:3000'); // Connect to local server
+        setSocket(newSocket);
+
+        newSocket.on('connect', () => {
+            console.log('Socket Connected:', newSocket.id);
+            setStatusMsg('Connected to Server');
+            // If we have ID already (re-mount?), register.
+            if (userId) {
+                newSocket.emit('REGISTER_SESSION', { userId });
             }
+        });
+
+        newSocket.on('FORCE_LOGOUT', (data: { reason: string }) => {
+            console.warn('Force Logout:', data.reason);
+            setStatusMsg(`Disconnected: ${data.reason}`);
+            alert(`You have been logged out: ${data.reason}`);
+            window.location.reload(); // Force return to login screen
+        });
+
+        newSocket.on('SESSION_FOUND', (data: { roomId: string }) => {
+            console.log("Found existing session in Room", data.roomId);
+            setStatusMsg("Rejoining Room...");
+            // Auto Join
+            // We need to call joinRoom, but it requires 'socket' which is 'newSocket' here
+            // We can't use 'socket' state yet.
+            // So we emit directly.
+            const targetRoomId = `JUMBO-BRIDGE-ROOM-${data.roomId}`;
+            currentRoomId.current = targetRoomId;
+            newSocket.emit('JOIN_REQUEST', { roomId: targetRoomId, name: playerName, userId });
+        });
+
+        newSocket.on('disconnect', () => {
+            console.log('Socket Disconnected');
+            setStatusMsg('Disconnected from Server');
+        });
+
+        // --- Global Listeners ---
+        newSocket.on('LOBBY_STATS', (stats: Record<string, number>) => {
+            setRoomCounts(stats);
+        });
+
+        newSocket.on('JOIN_ACCEPT', (data: { state: GameState, yourPosition: PlayerPosition }) => {
+            console.log('Joined Room!', data);
+            setGameState(data.state);
+            setMyPosition(data.yourPosition);
+            setStatusMsg("");
+        });
+
+        newSocket.on('JOIN_REJECT', (data: { reason: string }) => {
+            setStatusMsg(data.reason);
+        });
+
+        newSocket.on('STATE_UPDATE', (data: { state: GameState }) => {
+            console.log('Received State Update', data.state);
+            setGameState(data.state);
+        });
+
+        newSocket.on('ACTION_RELAY', (action: NetworkMessage) => {
+            handleIncomingAction(action);
+        });
+
+        return () => {
+            newSocket.disconnect();
         };
     }, []);
 
-    // --- Helper ---
-    const copyRoomId = async (id: string) => {
-        if (!id) return;
-        try {
-            if (navigator.clipboard && window.isSecureContext) {
-                await navigator.clipboard.writeText(id);
-            } else {
-                const textArea = document.createElement("textarea");
-                textArea.value = id;
-                textArea.style.position = "absolute";
-                textArea.style.left = "-9999px";
-                document.body.appendChild(textArea);
-                textArea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textArea);
-            }
-            setCopyFeedback(TEXT.COPIED);
-            setTimeout(() => setCopyFeedback(''), 2000);
-        } catch (err) {
-            console.error("Failed to copy", err);
-        }
-    };
-
-
-    // --- Host Logic ---
-
-    const handleHostReceivedDataRef = useRef<(data: NetworkMessage, conn: any) => void>(() => { });
-
-    const handleHostReceivedData = (data: NetworkMessage, conn: any) => {
-        if (data.type === NetworkActionType.EMOTE) {
-            broadcastMessage(data);
-            triggerEmote(data.position, data.emoji);
-            return;
-        }
-        if (data.type === NetworkActionType.INTERACTION) {
-            broadcastMessage(data);
-            triggerInteraction(data.interactionType, data.from, data.to);
-            return;
-        }
-        if (data.type === NetworkActionType.MESSAGE) {
-            broadcastMessage(data);
-            setSystemMessage(data.message);
-            return;
-        }
-        if (data.type === NetworkActionType.REQUEST_REDEAL) {
-            handleRedealRequest(
-                { position: data.position, points: data.points },
-                (msgContent) => {
-                    if (msgContent) {
-                        setSystemMessage(msgContent);
-                        broadcastMessage({ type: NetworkActionType.MESSAGE, message: msgContent });
-                    } else {
-                        setSystemMessage('');
-                        broadcastMessage({ type: NetworkActionType.MESSAGE, message: '' });
-                    }
-                }
-            );
-            return;
-        }
-
-        if (data.type === NetworkActionType.JOIN_REQUEST) {
-            // Use Ref to get current state
-            const prev = gameStateRef.current || gameState;
-
-            if (prev.players.length >= 4) {
-                conn.send({ type: NetworkActionType.JOIN_REJECT, reason: TEXT.ROOM_FULL });
-                return;
-            }
-            // Check if player arguably already joined? 
-            if (prev.players.some(p => p.id === conn.peer)) return;
-
-            const occupiedPositions = prev.players.map(p => p.position);
-            const reserved = (prev.phase === GamePhase.Lobby && !occupiedPositions.includes(PlayerPosition.North))
-                ? [PlayerPosition.North]
-                : [];
-
-            const allPositions = [PlayerPosition.North, PlayerPosition.East, PlayerPosition.South, PlayerPosition.West];
-            const available = allPositions.filter(p => !occupiedPositions.includes(p) && !reserved.includes(p));
-            const nextPosition = available[0];
-
-            if (!nextPosition) return;
-
-            const newPlayer: PlayerProfile = {
-                id: conn.peer,
-                name: data.name,
-                position: nextPosition,
-                isHost: false
-            };
-
-            const newPlayers = [...prev.players, newPlayer];
-            const newState = { ...prev, players: newPlayers };
-
-            setGameState(newState);
-            conn.send({ type: NetworkActionType.JOIN_ACCEPT, state: newState, yourPosition: nextPosition });
-            broadcastState(newState, conn.peer);
-            return;
-        }
-
-        setGameState(prev => {
-            if (data.type === NetworkActionType.BID) return processBidLogic(prev, data.bid);
-            if (data.type === NetworkActionType.READY) return processReadyLogic(prev, data.position);
-            if (data.type === NetworkActionType.PLAY) return processPlayLogic(prev, data.card, data.position);
-            if (data.type === NetworkActionType.SURRENDER) return processSurrender(prev, data.position);
-            if (data.type === NetworkActionType.RESTART) { return prev; }
-
-            return prev;
-        });
-    };
-
+    // Register Session when User ID is set (Login)
     useEffect(() => {
-        handleHostReceivedDataRef.current = handleHostReceivedData;
-    });
+        if (socket && userId) {
+            console.log("Registering Session for:", userId);
+            socket.emit('REGISTER_SESSION', { userId });
+        }
+    }, [socket, userId]);
 
-    const broadcastState = (state: GameState, excludeId?: string) => {
-        clientsRef.current.forEach(conn => {
-            if (conn.open && conn.peer !== excludeId) {
-                conn.send({ type: NetworkActionType.STATE_UPDATE, state });
-            }
-        });
+    // --- Lobby Logic ---
+    const checkLobbyStats = () => {
+        if (socket) {
+            socket.emit('QUERY_LOBBY_STATS');
+        }
     };
 
-    const broadcastMessage = (msg: NetworkMessage, excludeId?: string) => {
-        clientsRef.current.forEach(conn => {
-            if (conn.open && conn.peer !== excludeId) {
-                conn.send(msg);
-            }
-        });
+    // --- Room Logic ---
+    const joinRoom = async (roomNumber: string) => {
+        if (!socket) return;
+
+        const targetRoomId = `JUMBO-BRIDGE-ROOM-${roomNumber}`;
+        currentRoomId.current = targetRoomId;
+
+        setStatusMsg("Entering Room...");
+        socket.emit('JOIN_REQUEST', { roomId: targetRoomId, name: playerName, userId });
     };
 
-    useEffect(() => {
+    const leaveRoom = () => {
+        if (socket) {
+            socket.emit('LEAVE_ROOM', { userId });
+            currentRoomId.current = null;
+            // No reload. App.tsx handles view reset.
+        }
+    };
+
+    // --- Message Handling ---
+    const handleIncomingAction = (action: NetworkMessage) => {
+        if (action.type === NetworkActionType.EMOTE) {
+            triggerEmote(action.position, action.emoji);
+        } else if (action.type === NetworkActionType.INTERACTION) {
+            triggerInteraction(action.interactionType, action.from, action.to);
+        } else if (action.type === NetworkActionType.MESSAGE) {
+            setSystemMessage(action.message);
+        }
+    };
+
+
+    // --- Host Logic (Client Side Reducer) ---
+    const sendAction = (action: NetworkMessage) => {
+        if (!socket) return;
+        const roomId = currentRoomId.current;
+        if (!roomId) return;
+
+        // Special: Chat/Emotes don't change Game State usually (visual only)
+        // But we broadcast them.
+        if (action.type === NetworkActionType.EMOTE ||
+            action.type === NetworkActionType.INTERACTION ||
+            action.type === NetworkActionType.MESSAGE) {
+
+            socket.emit('ACTION_RELAY', { roomId, action });
+            // Show locally
+            handleIncomingAction(action);
+            return;
+        }
+
         if (isHost) {
-            broadcastState(gameState);
-        }
-    }, [gameState, isHost]);
+            // I am Host. I process logic immediately.
+            let newState = { ...gameState };
 
-    // --- Host: Add Bot Logic ---
+            if (action.type === NetworkActionType.BID) newState = processBidLogic(newState, action.bid);
+            else if (action.type === NetworkActionType.DEAL) startNewDeal(false); // This resets state, care.
+            else if (action.type === NetworkActionType.RESTART) startNewDeal(true);
+            else if (action.type === NetworkActionType.READY) newState = processReadyLogic(newState, action.position);
+            else if (action.type === NetworkActionType.PLAY) newState = processPlayLogic(newState, action.card, action.position);
+            else if (action.type === NetworkActionType.SURRENDER) newState = processSurrender(newState, action.position);
+
+            // Note: startNewDeal updates state via its own hook usually?
+            // If reducers return new state:
+            setGameState(newState);
+            // Broadcast
+            socket.emit('STATE_UPDATE', { roomId, state: newState });
+        } else {
+            // I am Client. I send Action to Host via Relay.
+            socket.emit('ACTION_RELAY', { roomId, action });
+        }
+    };
+
+    // Need to listen for Actions if I am Host
+    useEffect(() => {
+        if (!socket) return;
+
+        const onActionRelay = (action: NetworkMessage) => {
+            if (isHost) {
+                // I am Host, I must process this action from someone else
+                console.log("Host processing action:", action);
+
+                let newState = { ...gameStateRef.current }; // Use Ref for latest state
+
+                if (action.type === NetworkActionType.BID) newState = processBidLogic(newState, action.bid);
+                else if (action.type === NetworkActionType.READY) newState = processReadyLogic(newState, action.position);
+                else if (action.type === NetworkActionType.PLAY) newState = processPlayLogic(newState, action.card, action.position);
+                else if (action.type === NetworkActionType.SURRENDER) newState = processSurrender(newState, action.position);
+                else if (action.type === NetworkActionType.REQUEST_REDEAL) {
+                    // Handle Redeal
+                    handleRedealRequest({ position: action.position, points: action.points }, (msg) => {
+                        const m = { type: NetworkActionType.MESSAGE, message: msg };
+                        socket.emit('ACTION_RELAY', { roomId: currentRoomId.current, action: m });
+                        setSystemMessage(msg);
+                    });
+                    return;
+                }
+
+                setGameState(newState);
+                socket.emit('STATE_UPDATE', { roomId: currentRoomId.current, state: newState });
+            } else {
+                // I am client, I just see it (Emotes handled above).
+                handleIncomingAction(action);
+            }
+        };
+
+        socket.on('ACTION_RELAY', onActionRelay);
+
+        return () => {
+            socket.off('ACTION_RELAY', onActionRelay);
+        }
+    }, [socket, isHost]); // Re-bind when isHost changes
+
+
+    // --- Host Controls ---
     const addBot = (slot: PlayerPosition) => {
         if (!isHost) return;
+
         setGameState(prev => {
             if (prev.players.some(p => p.position === slot)) return prev;
-
-            // Create unique ID for bot
             const botId = `BOT-${slot}-${Date.now()}`;
             const newBot: PlayerProfile = {
                 id: botId,
@@ -272,9 +252,10 @@ export const useMultiplayer = ({
                 isHost: false,
                 isBot: true
             };
-
             const newPlayers = [...prev.players, newBot];
             const newState = { ...prev, players: newPlayers };
+
+            socket?.emit('STATE_UPDATE', { roomId: currentRoomId.current, state: newState });
 
             return newState;
         });
@@ -283,107 +264,31 @@ export const useMultiplayer = ({
     const removeBot = (slot: PlayerPosition) => {
         if (!isHost) return;
         setGameState(prev => {
-            const playerToRemove = prev.players.find(p => p.position === slot);
-            if (!playerToRemove || !playerToRemove.isBot) return prev;
-
             const newPlayers = prev.players.filter(p => p.position !== slot);
-            return { ...prev, players: newPlayers };
+            const newState = { ...prev, players: newPlayers };
+            socket?.emit('STATE_UPDATE', { roomId: currentRoomId.current, state: newState });
+            return newState;
         });
     };
 
-
-    // --- Client Logic ---
-
-    const handleClientDataRef = useRef<(data: NetworkMessage) => void>(() => { });
-
-    useEffect(() => {
-        handleClientDataRef.current = (data: NetworkMessage) => {
-            if (data.type === NetworkActionType.JOIN_ACCEPT) {
-                setGameState(data.state);
-                setMyPosition(data.yourPosition);
-                setStatusMsg("");
-            } else if (data.type === NetworkActionType.STATE_UPDATE) {
-                setGameState(data.state);
-            } else if (data.type === NetworkActionType.EMOTE) {
-                triggerEmote(data.position, data.emoji);
-            } else if (data.type === NetworkActionType.INTERACTION) {
-                triggerInteraction(data.interactionType, data.from, data.to);
-            } else if (data.type === NetworkActionType.MESSAGE) {
-                setSystemMessage(data.message);
-            } else if (data.type === NetworkActionType.JOIN_REJECT) {
-                setStatusMsg(data.reason);
-                if (connRef.current) {
-                    connRef.current.close();
-                }
-            }
-        };
-    });
-
-    const connectToHost = (hostId: string) => {
-        if (!peerRef.current) return;
-        setStatusMsg(TEXT.CONNECTING);
-
-        const conn = peerRef.current.connect(hostId);
-
-        conn.on('open', () => {
-            setStatusMsg(TEXT.CONNECTED);
-            conn.send({ type: NetworkActionType.JOIN_REQUEST, name: playerName });
-        });
-
-        conn.on('data', (data: NetworkMessage) => {
-            handleClientDataRef.current(data);
-        });
-
-        connRef.current = conn;
-    };
-
-    const sendAction = (action: NetworkMessage) => {
-        if (isHost) {
-            if (action.type === NetworkActionType.EMOTE) {
-                broadcastMessage(action);
-                triggerEmote(action.position, action.emoji);
-                return;
-            }
-            if (action.type === NetworkActionType.INTERACTION) {
-                broadcastMessage(action);
-                triggerInteraction(action.interactionType, action.from, action.to);
-                return;
-            }
-            if (action.type === NetworkActionType.REQUEST_REDEAL) {
-                handleHostReceivedData(action, null);
-                return;
-            }
-
-            if (action.type === NetworkActionType.BID) {
-                setGameState(prev => processBidLogic(prev, action.bid));
-            } else if (action.type === NetworkActionType.DEAL) {
-                startNewDeal(false);
-            } else if (action.type === NetworkActionType.RESTART) {
-                startNewDeal(true);
-            } else if (action.type === NetworkActionType.READY) {
-                setGameState(prev => processReadyLogic(prev, action.position));
-            } else if (action.type === NetworkActionType.PLAY) {
-                setGameState(prev => processPlayLogic(prev, action.card, action.position));
-            } else if (action.type === NetworkActionType.SURRENDER) {
-                setGameState(prev => processSurrender(prev, action.position));
-            }
-        } else {
-            if (connRef.current && connRef.current.open) {
-                connRef.current.send(action);
-            }
-        };
+    const copyRoomId = (id: string) => {
+        navigator.clipboard.writeText(id);
     };
 
     return {
-        myPeerId,
-        hostPeerId,
-        setHostPeerId,
+        myPeerId: socket?.id || '',
+        hostPeerId: 'SERVER',
+        setHostPeerId: () => { },
         statusMsg,
-        copyFeedback,
-        connectToHost,
+        copyFeedback: '',
+        connectToHost: () => { }, // unused
         copyRoomId,
         sendAction,
         addBot,
-        removeBot
+        removeBot,
+        joinRoom,
+        leaveRoom,
+        checkLobbyStats,
+        roomCounts
     };
 };
