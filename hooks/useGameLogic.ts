@@ -45,11 +45,8 @@ export const useGameLogic = () => {
         }
     }, [gameState]);
 
-    const startNewDeal = useCallback((isReplay: boolean = false) => {
-        const currentState = gameStateRef.current;
-
-        setHasRequestedRedeal(false);
-
+    // Pure helper to generate state (exported for Multiplayer use)
+    const generateNewDealState = (currentState: GameState, isReplay: boolean): GameState => {
         let nextDealer = currentState.dealer;
         let nextTurn = currentState.turn;
 
@@ -69,8 +66,8 @@ export const useGameLogic = () => {
         const deck = shuffleDeck(generateDeck());
         const hands = dealCards(deck);
 
-        setGameState(prev => ({
-            ...prev,
+        return {
+            ...currentState,
             phase: GamePhase.Dealing,
             hands,
             dealer: nextDealer,
@@ -86,13 +83,18 @@ export const useGameLogic = () => {
             playHistory: [],
             winningTeam: undefined,
             surrendered: false
-        }));
+        };
+    };
+
+    const startNewDeal = useCallback((isReplay: boolean = false) => {
+        const newState = generateNewDealState(gameStateRef.current, isReplay);
+        setGameState(newState);
 
         // Check for Auto-Redeal (> 16 points)
         let autoRedealPos: PlayerPosition | null = null;
         let maxPoints = 0;
 
-        Object.entries(hands).forEach(([pos, hand]) => {
+        Object.entries(newState.hands).forEach(([pos, hand]) => {
             const points = calculateHCP(hand);
             if (points > 16) {
                 autoRedealPos = pos as PlayerPosition;
@@ -101,34 +103,18 @@ export const useGameLogic = () => {
         });
 
         if (autoRedealPos) {
-            const player = currentState.players.find(p => p.position === autoRedealPos);
+            const player = newState.players.find(p => p.position === autoRedealPos);
             const name = player ? player.name : TEXT[autoRedealPos as PlayerPosition];
 
             setTimeout(() => {
                 const msg = `${TEXT.REDEAL_REQUESTED}: ${name} (${maxPoints} ${TEXT.POINTS} > 16). ${TEXT.REDEALING_IN}`;
                 setSystemMessage(msg);
-                // We need to access broadcast from here... ensure systemMessage triggers effect? 
-                // Actually startNewDeal is local/Host only. Host sees message.
-                // We should ideally broadcast this message. But we don't have broadcast here.
-                // `systemMessage` state is returned. App can see it. 
-                // But we need to Sync this with `handleRedealRequest` logic.
-                // Simplest: just wait and call startNewDeal again. Host drives game state.
-                // Does Host App component respond to systemMessage change by broadcasting? 
-                // Currently App.tsx: setSystemMessage -> sendAction(MESSAGE)? No.
-                // But `processPlayLogic` etc happen.
-
-                // Let's just set timeout to re-deal.
                 setTimeout(() => {
                     startNewDeal(isReplay);
                     setSystemMessage('');
                 }, 4000);
             }, 1000);
-
-            return; // Don't proceed to Reviewing phase yet? 
-            // Phase is Dealing. UI shows Dealing.
-            // If we don't switch to Reviewing, players won't see cards?
-            // Maybe we WANT them to see cards briefly?
-            // "Dealing" phase usually covers the animation.
+            return;
         }
 
         setTimeout(() => {
@@ -179,6 +165,7 @@ export const useGameLogic = () => {
         systemMessage,
         setSystemMessage,
         handleRedealRequest,
+        generateNewDealState,
         INITIAL_STATE
     };
 };

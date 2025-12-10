@@ -17,6 +17,7 @@ interface UseMultiplayerProps {
     addLog: (msg: string) => void;
     setSystemMessage: (msg: string) => void;
     handleRedealRequest: (data: { position: PlayerPosition; points?: number }, broadcast: (msg: string) => void) => void;
+    generateNewDealState: (state: GameState, isReplay: boolean) => GameState; // Added property
 }
 
 export const useMultiplayer = ({
@@ -32,6 +33,7 @@ export const useMultiplayer = ({
     addLog,
     setSystemMessage,
     handleRedealRequest,
+    generateNewDealState, // Destructure here
     userId // Received from App (Input ID)
 }: UseMultiplayerProps & { userId: string }) => {
     const [socket, setSocket] = useState<Socket | null>(null);
@@ -214,8 +216,40 @@ export const useMultiplayer = ({
             let newState = { ...gameState };
 
             if (action.type === NetworkActionType.BID) newState = processBidLogic(newState, action.bid);
-            else if (action.type === NetworkActionType.DEAL) startNewDeal(false); // This resets state, care.
-            else if (action.type === NetworkActionType.RESTART) startNewDeal(true);
+            else if (action.type === NetworkActionType.DEAL) {
+                // Generate state directly
+                newState = generateNewDealState(newState, false);
+                // Note: The auto-transition to Reviewing needs to be managed?
+                // `startNewDeal` did setTimeout -> Reviewing.
+                // We should emulate that here or broadcast the Reviewing transition later?
+                // If we set state to "Dealing", UI shows animation.
+                // We need to set a timeout to switch to Reviewing and BROADCAST.
+                setTimeout(() => {
+                    if (isHost && socket) { // Re-check host status
+                        // We need the LATEST state to avoid overwriting invalid logic?
+                        // Actually, we can just emit a Partial update? 
+                        // Or just follow `startNewDeal` pattern: Set Local -> Broadcast.
+                        // But we are in `sendAction`.
+
+                        // Fix: Emit 'DEALING' state now.
+                        // Then emit 'REVIEWING' state after 1s.
+                        const reviewingState = { ...newState, phase: GamePhase.Reviewing };
+                        setGameState(reviewingState);
+                        socket.emit('STATE_UPDATE', { roomId: currentRoomId.current, state: reviewingState });
+                    }
+                }, 1000);
+            }
+            else if (action.type === NetworkActionType.RESTART) {
+                newState = generateNewDealState(newState, true);
+                // Same timeout logic as above
+                setTimeout(() => {
+                    if (isHost && socket) {
+                        const reviewingState = { ...newState, phase: GamePhase.Reviewing };
+                        setGameState(reviewingState);
+                        socket.emit('STATE_UPDATE', { roomId: currentRoomId.current, state: reviewingState });
+                    }
+                }, 1000);
+            }
             else if (action.type === NetworkActionType.READY) newState = processReadyLogic(newState, action.position);
             else if (action.type === NetworkActionType.PLAY) newState = processPlayLogic(newState, action.card, action.position);
             else if (action.type === NetworkActionType.SURRENDER) newState = processSurrender(newState, action.position);

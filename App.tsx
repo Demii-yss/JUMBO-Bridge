@@ -53,7 +53,8 @@ function App() {
         startNewDeal,
         systemMessage,
         setSystemMessage,
-        handleRedealRequest
+        handleRedealRequest,
+        generateNewDealState
     } = useGameLogic();
 
     // Helper: Add Log
@@ -123,6 +124,7 @@ function App() {
         setMyPosition,
         playerName,
         startNewDeal,
+        generateNewDealState, // Added
         triggerEmote,
         triggerInteraction,
         addLog,
