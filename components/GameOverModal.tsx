@@ -8,6 +8,7 @@ interface GameOverModalProps {
     isHost: boolean;
     sendAction: (action: any) => void;
     downloadHistory: () => void;
+    onClose: () => void; // Local Close
 }
 
 const GameOverModal: React.FC<GameOverModalProps> = memo(({
@@ -15,12 +16,11 @@ const GameOverModal: React.FC<GameOverModalProps> = memo(({
     myPosition,
     isHost,
     sendAction,
-    downloadHistory
+    downloadHistory,
+    onClose
 }) => {
-    // If I have already clicked "Back to Room" (am Ready), hide this modal
-    if (gameState.readyPlayers.includes(myPosition)) {
-        return null;
-    }
+    // Visibility controlled by Parent (App.tsx) via conditional rendering
+
 
     return (
         <div className="absolute inset-0 z-[100] bg-black/80 flex items-center justify-center">
@@ -50,7 +50,7 @@ const GameOverModal: React.FC<GameOverModalProps> = memo(({
                     </button>
 
                     <button
-                        onClick={() => sendAction({ type: NetworkActionType.READY, position: myPosition } as any)}
+                        onClick={onClose}
                         className="bg-yellow-600 hover:bg-yellow-500 text-black font-bold py-4 px-8 rounded-xl text-2xl"
                     >
                         {TEXT.BACK_TO_ROOM || 'Back to Room'}

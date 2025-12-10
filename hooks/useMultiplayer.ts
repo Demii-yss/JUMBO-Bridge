@@ -18,6 +18,7 @@ interface UseMultiplayerProps {
     setSystemMessage: (msg: string) => void;
     handleRedealRequest: (data: { position: PlayerPosition; points?: number }, broadcast: (msg: string) => void) => void;
     generateNewDealState: (state: GameState, isReplay: boolean) => GameState; // Added property
+    setPlayerName: (name: string) => void;
 }
 
 export const useMultiplayer = ({
@@ -27,6 +28,7 @@ export const useMultiplayer = ({
     myPosition,
     setMyPosition,
     playerName,
+    setPlayerName,
     startNewDeal,
     triggerEmote,
     triggerInteraction,
@@ -106,6 +108,13 @@ export const useMultiplayer = ({
             setGameState(data.state);
             setMyPosition(data.yourPosition);
             setStatusMsg("");
+
+            // Sync persistent name from server
+            const myProfile = data.state.players.find(p => p.position === data.yourPosition);
+            if (myProfile && myProfile.name && myProfile.name !== playerName) {
+                console.log("[CLIENT] Syncing persistent name:", myProfile.name);
+                setPlayerName(myProfile.name);
+            }
         });
 
         newSocket.on('JOIN_REJECT', (data: { reason: string }) => {
@@ -312,10 +321,12 @@ export const useMultiplayer = ({
                 name: `${TEXT[slot]} (BOT)`,
                 position: slot,
                 isHost: false,
-                isBot: true
+                isBot: true // Flag
             };
             const newPlayers = [...prev.players, newBot];
-            const newState = { ...prev, players: newPlayers };
+            // Bot Auto-Ready
+            const newReady = [...prev.readyPlayers, slot]; // Add Bot to Ready
+            const newState = { ...prev, players: newPlayers, readyPlayers: newReady };
 
             socket?.emit('STATE_UPDATE', { roomId: currentRoomId.current, state: newState });
 
@@ -327,7 +338,9 @@ export const useMultiplayer = ({
         if (!isHost) return;
         setGameState(prev => {
             const newPlayers = prev.players.filter(p => p.position !== slot);
-            const newState = { ...prev, players: newPlayers };
+            // Bot Cleanup Ready
+            const newReady = prev.readyPlayers.filter(p => p !== slot);
+            const newState = { ...prev, players: newPlayers, readyPlayers: newReady };
             socket?.emit('STATE_UPDATE', { roomId: currentRoomId.current, state: newState });
             return newState;
         });

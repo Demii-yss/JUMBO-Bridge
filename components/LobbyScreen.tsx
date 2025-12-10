@@ -100,7 +100,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
             </div>
 
             {/* Room List */}
-            <div className="flex-1 w-full max-w-4xl p-8 z-10 overflow-y-auto custom-scrollbar">
+            <div className="flex-1 w-full max-w-4xl p-8 z-10 overflow-y-auto custom-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                 <h2 className="text-3xl font-bold text-gray-300 mb-6 text-center">Game Rooms</h2>
 
                 <div className="flex flex-col gap-4 pb-20">

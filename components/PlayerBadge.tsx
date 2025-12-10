@@ -17,7 +17,8 @@ interface PlayerBadgeProps {
     uniqueNames: Record<string, string>;
     isPortrait: boolean;
     slot: string;
-    isReady?: boolean; // New Prop
+    isReady?: boolean;
+    onClickAction?: () => void;
 }
 
 const PlayerBadge: React.FC<PlayerBadgeProps> = ({
@@ -34,7 +35,8 @@ const PlayerBadge: React.FC<PlayerBadgeProps> = ({
     uniqueNames,
     isPortrait,
     slot,
-    isReady
+    isReady,
+    onClickAction
 }) => {
     let badgeClass = 'pointer-events-auto z-50 text-white font-bold border-2 border-stone-600 shadow-xl backdrop-blur-md rounded-lg px-6 py-2 transition-all cursor-pointer relative';
     badgeClass += ` text-[2.5vmin]`; // Fluid Font Size
@@ -45,18 +47,13 @@ const PlayerBadge: React.FC<PlayerBadgeProps> = ({
     if (isActive) badgeClass += ' ring-4 ring-amber-500 bg-stone-700 scale-110';
     else badgeClass += ' bg-stone-800/80';
 
-    if (showInteractionHighlight) badgeClass += ' ring-4 ring-red-500 bg-red-900/50 scale-110 animate-pulse';
-
-    // Game End: Red Name Box if not ready (not back to room)
-    if (gamePhase === GamePhase.Finished && isReady === false) {
-        badgeClass += ' bg-red-700/90 border-red-500 animate-pulse';
-    }
-
     const displayName = profile ? uniqueNames[profile.id] : TEXT.EMPTY_SLOT;
     const nameColor = isDeclarer ? 'text-yellow-400' : 'text-white';
 
     const isHiddenSelf = isPortrait && slot === 'bottom';
     if (isHiddenSelf) badgeClass += ' invisible'; // Hide the badge itself but keep layout
+
+    if (showInteractionHighlight) badgeClass += ' ring-4 ring-red-500 bg-red-900/50 scale-110 animate-pulse';
 
     // Offline Status Logic
     const isOffline = profile && profile.connected === false;
@@ -76,14 +73,37 @@ const PlayerBadge: React.FC<PlayerBadgeProps> = ({
         ? '-top-[16px] border-b-[16px] border-b-white'
         : 'bottom-[-16px] border-t-[16px] border-t-white';
 
+    // Ready Status Indicator (GamePhase.Lobby or Finished)
+    const showReadyStatus = (gamePhase === GamePhase.Lobby || gamePhase === GamePhase.Finished) && profile && profile.connected !== false;
+
     return (
         <div className={badgeClass} onClick={(e) => {
             if (showInteractionHighlight && profile) {
                 e.stopPropagation();
-                handleInteraction(pos);
+                handleInteraction(pos); // Prioritize Interaction
+                return;
+            }
+            if (onClickAction) {
+                e.stopPropagation();
+                onClickAction(); // Trigger Action (e.g. Remove Bot)
             }
         }}>
             <div className={`whitespace-nowrap ${nameColor}`}>{finalDisplayName}</div>
+
+            {/* Ready Status Badge */}
+            {showReadyStatus && (
+                <div className={`absolute ${isSideBadge ? 'bottom-full mb-2' : 'left-full ml-3'} flex items-center justify-center`}>
+                    {profile?.isHost ? (
+                        <div className="px-3 py-1 rounded-full font-bold text-sm shadow-md border-2 border-white bg-amber-500 text-black">
+                            👑 HOST
+                        </div>
+                    ) : (
+                        <div className={`px-3 py-1 rounded-full font-bold text-sm shadow-md border-2 border-white ${isReady ? 'bg-green-600 text-white' : 'bg-gray-600/80 text-gray-200'}`}>
+                            {isReady ? '✓ READY' : '✕ WAITING'}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {tricksWon > 0 && gamePhase === GamePhase.Playing && (
                 <div className={`bg-yellow-500 text-black font-bold w-[4vmin] h-[4vmin] rounded-full flex items-center justify-center border-2 border-white shadow-lg text-[2vmin] ${isSideBadge ? 'mt-1' : 'ml-3'}`}>

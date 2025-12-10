@@ -70,7 +70,7 @@ const GameTable: React.FC<GameTableProps> = memo(({
                     return (
                         <div key={`empty-${slot}`} className="absolute z-20" style={style}>
                             <div className="flex flex-col items-center justify-center p-4 bg-black/40 rounded-xl border-2 border-dashed border-gray-500 backdrop-blur-sm">
-                                <span className="text-gray-400 mb-2 font-bold">{TEXT[targetPos]}</span>
+                                {/* <span className="text-gray-400 mb-2 font-bold">{TEXT[targetPos]}</span>  <-- Removed per user request */}
                                 <div className="text-gray-500 text-sm mb-2">{TEXT.WAITING_FOR_OTHERS}</div>
                                 {isHost && onAddBot && (
                                     <button
@@ -89,7 +89,7 @@ const GameTable: React.FC<GameTableProps> = memo(({
 
                 const isTurn = gameState.turn === pos;
                 const isActive = isTurn && (gameState.phase === GamePhase.Playing || gameState.phase === GamePhase.Bidding);
-                const isDeclarer = gameState.contract?.declarer === pos;
+                const isDeclarer = gameState.contract?.declarer === pos && gameState.phase !== GamePhase.Finished;
                 const isSideBadge = slot === 'left' || slot === 'right';
 
                 const badge = (
@@ -109,8 +109,10 @@ const GameTable: React.FC<GameTableProps> = memo(({
                             uniqueNames={uniqueNames}
                             isPortrait={isPortrait}
                             slot={slot}
+                            isReady={gameState.readyPlayers.includes(pos)}
+                            onClickAction={isHost && profile.isBot && onRemoveBot ? () => onRemoveBot(pos) : undefined}
                         />
-                        {/* Remove Bot Button */}
+                        {/* Remove Bot Button (Keep as alternative) */}
                         {isHost && profile.isBot && gameState.phase === GamePhase.Idle && onRemoveBot && (
                             <button
                                 onClick={() => onRemoveBot(pos)}

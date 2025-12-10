@@ -18,8 +18,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogin }) => {
 
     const handleLogin = () => {
         const id = inputValue.trim();
-        if (!/^\d{5}$/.test(id)) {
-            setError('ID must be exactly 5 digits.');
+        if (!/^\d{8}$/.test(id)) {
+            setError('ID must be exactly 8 digits.');
             return;
         }
         localStorage.setItem('jumbo_player_id', id);
@@ -43,24 +43,24 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogin }) => {
                         type="text"
                         value={inputValue}
                         onChange={(e) => {
-                            const val = e.target.value.replace(/\D/g, '').slice(0, 5);
+                            const val = e.target.value.replace(/\D/g, '').slice(0, 8); // Allow 8 digits
                             setInputValue(val);
                             setError('');
                         }}
                         onKeyDown={handleKeyDown}
-                        placeholder="12345"
-                        className="bg-black/40 border-2 border-gray-600 focus:border-yellow-500 rounded-lg p-4 text-center text-3xl font-mono tracking-[0.5em] text-white outline-none transition-colors placeholder-gray-700"
+                        placeholder="12345678" // Updated Placeholder
+                        className="bg-black/40 border-2 border-gray-600 focus:border-yellow-500 rounded-lg p-4 text-center text-3xl font-mono tracking-[0.2em] text-white outline-none transition-colors placeholder-gray-700"
                         autoFocus
                     />
                     {error && <p className="text-red-400 text-sm mt-1 text-center font-bold animate-pulse">{error}</p>}
-                    <p className="text-gray-500 text-xs text-center mt-1">Enter a 5-digit number to identify yourself.</p>
+                    <p className="text-gray-500 text-xs text-center mt-1">Enter an 8-digit number to identify yourself.</p>
                 </div>
 
                 <button
                     onClick={handleLogin}
-                    disabled={inputValue.length !== 5}
+                    disabled={inputValue.length !== 8}
                     className={`mt-4 py-4 rounded-xl font-bold text-xl uppercase tracking-widest transition-all
-                        ${inputValue.length === 5
+                        ${inputValue.length === 8
                             ? 'bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 text-black shadow-lg hover:shadow-yellow-500/20 transform hover:-translate-y-1'
                             : 'bg-gray-800 text-gray-500 cursor-not-allowed'}
                     `}
@@ -70,7 +70,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onLogin }) => {
             </div>
 
             <div className="absolute bottom-8 text-gray-500 text-sm">
-                JUMBO Bridge v2.0
+                JUMBO Bridge v0.0
             </div>
         </div>
     );

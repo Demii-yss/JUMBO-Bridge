@@ -130,7 +130,8 @@ function App() {
         addLog,
         setSystemMessage,
         handleRedealRequest,
-        userId: playerId // Pass the User Input ID as the unique Session ID
+        userId: playerId, // Pass the User Input ID as the unique Session ID
+        setPlayerName // Pass setter for sync
     });
 
     // --- Derived State & Helpers ---
@@ -139,6 +140,16 @@ function App() {
     const isHost = myProfile?.isHost || false;
     const isMyTurnToPlay = gameState.turn === myPosition && gameState.phase === GamePhase.Playing;
     const currentTrickWinner = gameState.currentTrick.length > 0 ? getTrickWinner(gameState.currentTrick, gameState.contract?.suit) : null;
+
+    // Results Screen Visibility Logic
+    const [showResults, setShowResults] = useState(false);
+    useEffect(() => {
+        if (gameState.phase === GamePhase.Finished) {
+            setShowResults(true);
+        } else {
+            setShowResults(false);
+        }
+    }, [gameState.phase]);
 
     // --- Bot Logic Integration ---
     useBotLogic({
@@ -476,7 +487,7 @@ function App() {
                     })}
 
                     {/* Info Info - Fluid Text & Padding (Unified Size) */}
-                    {gameState.contract && (
+                    {gameState.contract && gameState.phase !== GamePhase.Finished && (
                         <div className={`absolute z-50 bg-black/60 border-yellow-500 rounded backdrop-blur-md shadow-2xl 
                             p-[2vmin]
                             ${isPortrait ? 'top-[8vmin] right-[2vmin] border-r-[1vmin] text-right' : 'bottom-[2vmin] left-[2vmin] border-l-[1vmin] text-left'}
@@ -522,19 +533,42 @@ function App() {
 
 
 
-                    {/* Deal Button (Centered) */}
-                    {isHost && (gameState.phase === GamePhase.Idle || gameState.phase === GamePhase.Lobby) && (
-                        <div className="pointer-events-auto">
-                            <button
-                                onClick={() => sendAction({ type: NetworkActionType.DEAL } as any)}
-                                disabled={gameState.players.length < 4}
-                                className={`${COLORS.BTN_PRIMARY} ${gameState.players.length < 4 ? COLORS.BTN_DISABLED : ''} px-8 py-4 rounded shadow font-bold text-2xl fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[100] transition-all`}
-                            >
-                                {TEXT.DEAL_CARDS}
-                                {gameState.players.length < 4 && (
-                                    <div className="text-sm font-normal mt-1 opacity-80">(Need {4 - gameState.players.length} more)</div>
-                                )}
-                            </button>
+                    {/* Start/Ready System (Lobby/Finished) */}
+                    {((gameState.phase === GamePhase.Idle || gameState.phase === GamePhase.Lobby || gameState.phase === GamePhase.Finished) && !showResults) && (
+                        <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[100]">
+                            {/* Host: Start Game */}
+                            {isHost ? (
+                                <button
+                                    onClick={() => sendAction({ type: NetworkActionType.DEAL } as any)}
+                                    // Logic: 3 other players must be ready, and total 4 players
+                                    disabled={gameState.players.length < 4 || (gameState.readyPlayers.length < 3)} // Assuming Host is never in readyPlayers? Or check exact logic
+                                    // Actually better: check if all non-host players are in readyPlayers
+                                    // const nonHosts = gameState.players.filter(p => !p.isHost);
+                                    // const distinctReady = new Set(gameState.readyPlayers);
+                                    // const allReady = nonHosts.every(p => distinctReady.has(p.position));
+                                    // Let's rely on simple count for now if Host doesn't use Ready button. User said "Host doesn't have ready button".
+                                    className={`${COLORS.BTN_PRIMARY} ${(gameState.players.length < 4 || gameState.readyPlayers.length < 3) ? COLORS.BTN_DISABLED : ''} px-8 py-4 rounded shadow-lg font-bold text-3xl transition-all`}
+                                >
+                                    {TEXT.DEAL_CARDS} {/* Reuse Text or "Start Game" */}
+                                    {(gameState.players.length < 4) && (
+                                        <div className="text-sm font-normal mt-1 opacity-80">(Wait for 4 Players)</div>
+                                    )}
+                                    {(gameState.players.length === 4 && gameState.readyPlayers.length < 3) && (
+                                        <div className="text-sm font-normal mt-1 opacity-80">({gameState.readyPlayers.length}/{3} Players Ready)</div>
+                                    )}
+                                </button>
+                            ) : (
+                                /* Non-Host: Ready Toggle */
+                                <button
+                                    onClick={() => sendAction({ type: NetworkActionType.READY, position: myPosition! } as any)}
+                                    className={`px-8 py-4 rounded shadow-lg font-bold text-3xl transition-all ${gameState.readyPlayers.includes(myPosition!)
+                                        ? 'bg-green-600 hover:bg-green-500 text-white scan-line-active' // Ready Style
+                                        : 'bg-gray-600 hover:bg-gray-500 text-white animate-pulse' // Not Ready Style
+                                        }`}
+                                >
+                                    {gameState.readyPlayers.includes(myPosition!) ? "READY!" : "CLICK TO READY"}
+                                </button>
+                            )}
                         </div>
                     )}
 
@@ -601,14 +635,16 @@ function App() {
                                 myPosition={myPosition}
                                 isPortrait={isPortrait}
                             />
-                            <BiddingBox
-                                onBid={(bid) => sendAction({ type: NetworkActionType.BID, bid } as any)}
-                                history={gameState.bidHistory}
-                                player={myPosition!}
-                                disabled={gameState.turn !== myPosition}
-                                forceBid={shouldDisablePass()}
-                                isPortrait={isPortrait}
-                            />
+                            <div className={gameState.turn === myPosition ? '' : 'invisible pointers-events-none'}>
+                                <BiddingBox
+                                    onBid={(bid) => sendAction({ type: NetworkActionType.BID, bid } as any)}
+                                    history={gameState.bidHistory}
+                                    player={myPosition!}
+                                    disabled={gameState.turn !== myPosition}
+                                    forceBid={shouldDisablePass()}
+                                    isPortrait={isPortrait}
+                                />
+                            </div>
                         </div>
                     )}
 
@@ -620,7 +656,7 @@ function App() {
                                 {gameState.players.map(p => (
                                     <div key={p.position} className="flex flex-col items-center">
                                         <div className={`w-8 h-8 rounded-full ${gameState.readyPlayers.includes(p.position) ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                                        <span className="text-2xl text-gray-400 mt-2">{TEXT[p.position]}</span>
+                                        {/* <span className="text-2xl text-gray-400 mt-2">{TEXT[p.position]}</span> Removed per request */}
                                     </div>
                                 ))}
                             </div>
@@ -660,13 +696,15 @@ function App() {
                         isHost={isHost}
                     />
 
-                    {gameState.phase === GamePhase.Finished && (
+                    {/* Game Over Screen */}
+                    {gameState.phase === GamePhase.Finished && showResults && myPosition && (
                         <GameOverModal
                             gameState={gameState}
                             myPosition={myPosition}
                             isHost={isHost}
                             sendAction={sendAction}
                             downloadHistory={downloadHistory}
+                            onClose={() => setShowResults(false)}
                         />
                     )}
                 </div>

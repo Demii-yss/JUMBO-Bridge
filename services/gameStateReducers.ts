@@ -3,13 +3,22 @@ import { NEXT_TURN, PARTNER } from '../constants';
 import { getTrickWinner } from './bridgeLogic';
 
 export const processReadyLogic = (prev: GameState, position: PlayerPosition): GameState => {
-    // If logically we are in Finished phase, "Ready" means "Back to Room"
-    if (prev.phase === GamePhase.Finished) {
-        if (prev.readyPlayers.includes(position)) return prev;
-        const newReady = [...prev.readyPlayers, position];
+    // Phase: Lobby or Finished (Waiting for next game)
+    // Interaction: Toggle Ready Status
+    if (prev.phase === GamePhase.Lobby || prev.phase === GamePhase.Finished) {
+        let newReady: PlayerPosition[];
+        if (prev.readyPlayers.includes(position)) {
+            // Unready
+            newReady = prev.readyPlayers.filter(p => p !== position);
+        } else {
+            // Ready
+            newReady = [...prev.readyPlayers, position];
+        }
         return { ...prev, readyPlayers: newReady };
     }
 
+    // Phase: Reviewing (Waiting for Bidding)
+    // Interaction: One-way Ready (Start Game)
     if (prev.phase !== GamePhase.Reviewing) return prev;
     if (prev.readyPlayers.includes(position)) return prev;
 
@@ -114,7 +123,6 @@ export const processPlayLogic = (prev: GameState, card: Card, position: PlayerPo
         // CRITICAL: Check for game over *immediately* after score update, before new card is placed.
         const totalTricks = Object.values(tricksWon).reduce((a: number, b: number) => a + b, 0);
         if (totalTricks === 13) {
-            // This shouldn't typically happen here (13th trick ends in the bottom block), but valid as safety.
             newPhase = GamePhase.Finished;
             const nsTricks = ((tricksWon[PlayerPosition.North] as number) || 0) + ((tricksWon[PlayerPosition.South] as number) || 0);
             const ewTricks = ((tricksWon[PlayerPosition.East] as number) || 0) + ((tricksWon[PlayerPosition.West] as number) || 0);
@@ -127,14 +135,19 @@ export const processPlayLogic = (prev: GameState, card: Card, position: PlayerPo
                 winningTeam = ewTricks >= target ? 'EW' : 'NS';
             }
 
+            // Remove Bots immediately
+            const humanPlayers = prev.players.filter(p => !p.isBot);
+
             return {
                 ...(prev as GameState),
                 tricksWon,
                 currentTrick: [],
+                hands: { North: [], East: [], South: [], West: [] }, // Clear Hands
                 playHistory,
                 phase: newPhase,
                 winningTeam,
-                readyPlayers: [] // Reset Ready Players
+                readyPlayers: [], // Reset Ready Players
+                players: humanPlayers // KICK BOTS
             };
         }
 
@@ -182,15 +195,19 @@ export const processPlayLogic = (prev: GameState, card: Card, position: PlayerPo
             if (declarerIsNS) wTeam = nsTricks >= target ? 'NS' : 'EW';
             else wTeam = ewTricks >= target ? 'EW' : 'NS';
 
+            // Remove Bots immediately
+            const humanPlayers = prev.players.filter(p => !p.isBot);
+
             return {
                 ...(prev as GameState),
-                hands: newHands,
+                hands: { North: [], East: [], South: [], West: [] }, // Clear hands
                 currentTrick: [], // Clear table immediately for end screen
                 tricksWon: tricksWon, // Return updated scores
                 playHistory: finalHistory,
                 phase: GamePhase.Finished,
                 winningTeam: wTeam,
-                readyPlayers: [] // Reset Ready Players
+                readyPlayers: [], // Reset Ready Players
+                players: humanPlayers // KICK BOTS
             };
         }
     }
@@ -208,11 +225,18 @@ export const processPlayLogic = (prev: GameState, card: Card, position: PlayerPo
 export const processSurrender = (prev: GameState, position: PlayerPosition): GameState => {
     const isNS = [PlayerPosition.North, PlayerPosition.South].includes(position);
     const winningTeam = isNS ? 'EW' : 'NS';
+
+    // Remove Bots immediately
+    const humanPlayers = prev.players.filter(p => !p.isBot);
+
     return {
         ...prev,
         phase: GamePhase.Finished,
         winningTeam,
         surrendered: true,
-        readyPlayers: [] // Reset Ready Players
+        readyPlayers: [], // Reset Ready Players
+        hands: { North: [], East: [], South: [], West: [] }, // Clear Hands
+        currentTrick: [],
+        players: humanPlayers // KICK BOTS
     };
 };
