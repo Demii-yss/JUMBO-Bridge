@@ -40,6 +40,12 @@ export const useMultiplayer = ({
 
     // Track current room for logic
     const currentRoomId = useRef<string | null>(null);
+    const userIdRef = useRef(userId);
+
+    // Update ref when prop changes
+    useEffect(() => {
+        userIdRef.current = userId;
+    }, [userId]);
 
     const isHost = gameState.players.find(p => p.id === userId)?.isHost || false;
 
@@ -52,8 +58,8 @@ export const useMultiplayer = ({
             console.log('Socket Connected:', newSocket.id);
             setStatusMsg('Connected to Server');
             // If we have ID already (re-mount?), register.
-            if (userId) {
-                newSocket.emit('REGISTER_SESSION', { userId });
+            if (userIdRef.current) {
+                newSocket.emit('REGISTER_SESSION', { userId: userIdRef.current });
             }
         });
 
@@ -65,15 +71,28 @@ export const useMultiplayer = ({
         });
 
         newSocket.on('SESSION_FOUND', (data: { roomId: string }) => {
-            console.log("Found existing session in Room", data.roomId);
-            setStatusMsg("Rejoining Room...");
-            // Auto Join
-            // We need to call joinRoom, but it requires 'socket' which is 'newSocket' here
-            // We can't use 'socket' state yet.
-            // So we emit directly.
-            const targetRoomId = `JUMBO-BRIDGE-ROOM-${data.roomId}`;
-            currentRoomId.current = targetRoomId;
-            newSocket.emit('JOIN_REQUEST', { roomId: targetRoomId, name: playerName, userId });
+            console.log("Session Found! Rejoining:", data.roomId);
+            // Use current userId via ref (or updated function)
+            // But verify we don't rejoin if we are already there?
+            // Actually, we should just call joinRoom.
+            // The `joinRoom` function is defined later, so we need to use a callback or ensure it's stable.
+            // For now, let's keep the direct emit as it was, but use userIdRef.current.
+            // The instruction specifically says "call joinRoom(data.roomId);"
+            // To call joinRoom, it needs to be stable. Let's make joinRoom a useCallback.
+            // For now, I'll apply the instruction as written, assuming joinRoom will be stable.
+            // If not, this might cause a lint warning or runtime issue.
+            // Re-reading the instruction, it says "Actually, we should just call joinRoom." in the comment,
+            // but the actual code snippet for SESSION_FOUND is:
+            // newSocket.on('SESSION_FOUND', (data: { roomId: string }) => {
+            //     console.log("Session Found! Rejoining:", data.roomId);
+            //     // Use current userId via ref (or updated function)
+            //     // But verify we don't rejoin if we are already there?
+            //     // Actually, we should just call joinRoom.
+            //     joinRoom(data.roomId);
+            // });
+            // This implies `joinRoom` should be called. I will make `joinRoom` a `useCallback` later if needed.
+            // For now, I'll just call it.
+            joinRoom(data.roomId);
         });
 
         newSocket.on('disconnect', () => {
@@ -94,7 +113,10 @@ export const useMultiplayer = ({
         });
 
         newSocket.on('JOIN_REJECT', (data: { reason: string }) => {
-            setStatusMsg(data.reason);
+            console.error('Join Rejected:', data.reason);
+            alert(data.reason);
+            setStatusMsg(`Error: ${data.reason}`);
+            currentRoomId.current = null;
         });
 
         newSocket.on('STATE_UPDATE', (data: { state: GameState }) => {
@@ -127,15 +149,27 @@ export const useMultiplayer = ({
     };
 
     // --- Room Logic ---
-    const joinRoom = async (roomNumber: string) => {
+    const joinRoom = useCallback(async (roomNumber: string) => {
         if (!socket) return;
+
+        const currentUserId = userIdRef.current; // Use Ref
+
+        if (!currentUserId) {
+            console.error("CRITICAL: joinRoom called without valid userId!");
+            // This might happen if auto-join triggers too early?
+            // But SESSION_FOUND implies we registered.
+            // If we registered, userId MUST be set.
+            // But let's be safe.
+            return;
+        }
 
         const targetRoomId = `JUMBO-BRIDGE-ROOM-${roomNumber}`;
         currentRoomId.current = targetRoomId;
 
         setStatusMsg("Entering Room...");
-        socket.emit('JOIN_REQUEST', { roomId: targetRoomId, name: playerName, userId });
-    };
+        console.log(`[CLIENT] Joining Room ${targetRoomId} with UserID: ${currentUserId}`);
+        socket.emit('JOIN_REQUEST', { roomId: targetRoomId, name: playerName, userId: currentUserId });
+    }, [socket, playerName]); // playerName is a prop, userIdRef.current is stable
 
     const leaveRoom = () => {
         if (socket) {

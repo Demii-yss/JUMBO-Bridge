@@ -73,6 +73,7 @@ io.on('connection', (socket) => {
 
     // 3. Join Room
     socket.on('JOIN_REQUEST', ({ roomId, name, userId }) => {
+        console.log(`[JOIN_REQUEST] Raw: roomId=${roomId}, userId='${userId}', name='${name}'`);
         // Enforce 1 Room per User
         const safeUserId = userId || socket.id;
 

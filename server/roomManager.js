@@ -70,9 +70,13 @@ class RoomManager {
         const room = this.rooms.get(roomId);
         if (!room) return { success: false, error: 'Room not found' };
 
+        console.log(`[ROOM] addPlayer to ${roomId}: ID='${player.userId}' (Type: ${typeof player.userId}) Socket=${player.socketId}`);
+        console.log(`[ROOM] Current Players: ${JSON.stringify(room.players.map(p => ({ id: p.id, type: typeof p.id, name: p.name })))}`);
+
         // Check for Reconnection
-        const existingPlayer = room.players.find(p => p.id === player.userId);
+        const existingPlayer = room.players.find(p => String(p.id) === String(player.userId));
         if (existingPlayer) {
+            console.log(`[ROOM] Found existing player ${existingPlayer.name} (${existingPlayer.id}). Reconnecting.`);
             existingPlayer.socketId = player.socketId;
             existingPlayer.connected = true;
             return { success: true, room, reconnect: true };
