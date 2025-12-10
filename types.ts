@@ -49,6 +49,7 @@ export interface PlayerProfile {
   position: PlayerPosition;
   isHost: boolean;
   isBot?: boolean; // New Flag for BOTs
+  connected?: boolean;
 }
 
 export interface TrickCard {

@@ -58,6 +58,14 @@ const PlayerBadge: React.FC<PlayerBadgeProps> = ({
     const isHiddenSelf = isPortrait && slot === 'bottom';
     if (isHiddenSelf) badgeClass += ' invisible'; // Hide the badge itself but keep layout
 
+    // Offline Status Logic
+    const isOffline = profile && profile.connected === false;
+    let finalDisplayName = displayName;
+    if (isOffline) {
+        finalDisplayName += ' (Offline)';
+        badgeClass += ' opacity-50 grayscale'; // Visual indication
+    }
+
     // Emote Positioning Logic
     const isPartnerTop = isPortrait && slot === 'top';
     const emotePositionClass = isPartnerTop
@@ -75,7 +83,7 @@ const PlayerBadge: React.FC<PlayerBadgeProps> = ({
                 handleInteraction(pos);
             }
         }}>
-            <div className={`whitespace-nowrap ${nameColor}`}>{displayName}</div>
+            <div className={`whitespace-nowrap ${nameColor}`}>{finalDisplayName}</div>
 
             {tricksWon > 0 && gamePhase === GamePhase.Playing && (
                 <div className={`bg-yellow-500 text-black font-bold w-[4vmin] h-[4vmin] rounded-full flex items-center justify-center border-2 border-white shadow-lg text-[2vmin] ${isSideBadge ? 'mt-1' : 'ml-3'}`}>

@@ -59,7 +59,7 @@ class RoomManager {
 
     findRoomByUser(userId) {
         for (const [roomId, room] of this.rooms) {
-            if (room.players.some(p => p.id === userId)) {
+            if (room.players.some(p => String(p.id) === String(userId))) {
                 return roomId;
             }
         }

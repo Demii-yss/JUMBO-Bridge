@@ -74,27 +74,21 @@ export const useMultiplayer = ({
 
         newSocket.on('SESSION_FOUND', (data: { roomId: string }) => {
             console.log("Session Found! Rejoining:", data.roomId);
-            // Use current userId via ref (or updated function)
-            // But verify we don't rejoin if we are already there?
-            // Actually, we should just call joinRoom.
-            // The `joinRoom` function is defined later, so we need to use a callback or ensure it's stable.
-            // For now, let's keep the direct emit as it was, but use userIdRef.current.
-            // The instruction specifically says "call joinRoom(data.roomId);"
-            // To call joinRoom, it needs to be stable. Let's make joinRoom a useCallback.
-            // For now, I'll apply the instruction as written, assuming joinRoom will be stable.
-            // If not, this might cause a lint warning or runtime issue.
-            // Re-reading the instruction, it says "Actually, we should just call joinRoom." in the comment,
-            // but the actual code snippet for SESSION_FOUND is:
-            // newSocket.on('SESSION_FOUND', (data: { roomId: string }) => {
-            //     console.log("Session Found! Rejoining:", data.roomId);
-            //     // Use current userId via ref (or updated function)
-            //     // But verify we don't rejoin if we are already there?
-            //     // Actually, we should just call joinRoom.
-            //     joinRoom(data.roomId);
-            // });
-            // This implies `joinRoom` should be called. I will make `joinRoom` a `useCallback` later if needed.
-            // For now, I'll just call it.
-            joinRoom(data.roomId);
+            const targetRoomId = `JUMBO-BRIDGE-ROOM-${data.roomId}`;
+            currentRoomId.current = targetRoomId;
+
+            // Bypass joinRoom to avoid stale closure issues (initial joinRoom has socket=null)
+            if (userIdRef.current) {
+                console.log(`[CLIENT] Auto-Rejoining ${targetRoomId} with UserID: ${userIdRef.current}`);
+                newSocket.emit('JOIN_REQUEST', {
+                    roomId: targetRoomId,
+                    name: playerName, // Might be stale, but acceptable for reconnect 
+                    userId: userIdRef.current
+                });
+                setStatusMsg("Rejoining Session...");
+            } else {
+                console.error("Critical: Session found but no User ID ref!");
+            }
         });
 
         newSocket.on('disconnect', () => {
