@@ -46,6 +46,8 @@ export const useMultiplayer = ({
     const currentRoomId = useRef<string | null>(null);
     const userIdRef = useRef(userId);
     const socketInitialized = useRef(false); // 防止重複初始化
+    const reconnectAttempts = useRef(0); // 重連嘗試計數器
+    const maxReconnectAttempts = 10; // 最大重連次數
 
     // Update ref when prop changes
     useEffect(() => {
@@ -85,49 +87,21 @@ export const useMultiplayer = ({
         console.log('URL is absolute:', serverUrl.startsWith('http'));
         console.log('================================');
         
-        // 猴子補丁：攔截所有 XMLHttpRequest 請求，阻止向 github.io 發送請求
-        const OriginalXHR = window.XMLHttpRequest;
-        const ProxiedXHR = function(this: XMLHttpRequest) {
-            const xhr = new OriginalXHR();
-            const originalOpen = xhr.open.bind(xhr);
-            
-            xhr.open = function(method: string, url: string | URL, ...args: any[]) {
-                const urlString = url.toString();
-                // 如果請求不是指向我們的後端服務器，則阻止它
-                if (!urlString.includes('jumbo-bridge-server.onrender.com') && 
-                    !urlString.includes('localhost')) {
-                    console.warn('🚫 Blocked XHR request to:', urlString);
-                    return;
-                }
-                return originalOpen(method, url, ...args);
-            };
-            
-            return xhr;
-        } as any;
-        
-        ProxiedXHR.prototype = OriginalXHR.prototype;
-        window.XMLHttpRequest = ProxiedXHR as any;
-        
         const newSocket = io(serverUrl, {
-            // 只使用 websocket，不降級到 polling
+            // 只使用 websocket，完全避免 HTTP polling 和相關的健康檢查
             transports: ['websocket'],
-            reconnection: true,
-            reconnectionDelay: 1000,
-            reconnectionDelayMax: 5000,
-            reconnectionAttempts: 10,
+            // 禁用自動重連，改用手動控制（避免健康檢查）
+            reconnection: false,
             timeout: 45000,
             withCredentials: false,
             closeOnBeforeunload: false,
             forceNew: true,
-            // 禁用所有可能的健康檢查
+            // 強制使用完整的絕對路徑
+            path: '/socket.io/',
+            // 使用 query 參數確保 URL 完整性
             query: {
-                // 添加自定義參數確保使用完整 URL
-                t: Date.now().toString()
-            },
-            // 強制使用提供的 URL，不做域名解析
-            autoConnect: true,
-            // 不嘗試從當前域名推斷路徑
-            path: '/socket.io/'
+                transport: 'websocket'
+            }
         });
         
         socketInitialized.current = true;
@@ -137,6 +111,10 @@ export const useMultiplayer = ({
             console.log('✅ Socket Connected:', newSocket.id);
             console.log('   Transport:', newSocket.io.engine.transport.name);
             setStatusMsg('Connected to Server');
+            
+            // 重置重連計數器
+            reconnectAttempts.current = 0;
+            
             // If we have ID already (re-mount?), register.
             if (userIdRef.current) {
                 newSocket.emit('REGISTER_SESSION', { userId: userIdRef.current });
@@ -173,12 +151,40 @@ export const useMultiplayer = ({
             console.log('❌ Socket Disconnected');
             console.log('   Reason:', reason);
             setStatusMsg('Disconnected from Server');
+            
+            // 手動重連邏輯（避免 Socket.IO 內建的健康檢查）
+            // 排除用戶主動斷開的情況
+            if (reason !== 'io client disconnect') {
+                // 所有非主動斷開都嘗試重連
+                const reconnectDelay = 2000;
+                console.log(`🔄 Will attempt reconnection in ${reconnectDelay}ms...`);
+                
+                setTimeout(() => {
+                    if (!newSocket.connected) {
+                        console.log('🔄 Attempting manual reconnection...');
+                        newSocket.connect();
+                    }
+                }, reconnectDelay);
+            }
         });
 
         // 監聽連接錯誤
         newSocket.on('connect_error', (error) => {
             console.error('⚠️ Connection Error:', error.message);
-            setStatusMsg('Connection Error: ' + error.message);
+            reconnectAttempts.current++;
+            
+            if (reconnectAttempts.current <= maxReconnectAttempts) {
+                const retryDelay = Math.min(1000 * reconnectAttempts.current, 5000); // 漸進式延遲，最多 5 秒
+                setStatusMsg(`Connection Error. Retry ${reconnectAttempts.current}/${maxReconnectAttempts} in ${retryDelay/1000}s...`);
+                
+                setTimeout(() => {
+                    console.log(`🔄 Reconnection attempt ${reconnectAttempts.current}/${maxReconnectAttempts}`);
+                    newSocket.connect();
+                }, retryDelay);
+            } else {
+                console.error('❌ Max reconnection attempts reached');
+                setStatusMsg('Failed to connect. Please refresh the page.');
+            }
         });
 
         // 監聽傳輸升級

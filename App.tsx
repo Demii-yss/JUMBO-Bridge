@@ -375,7 +375,7 @@ function App() {
     // Show Loading/Connecting overlay until myPosition is set
     if (myPosition === null) {
         return (
-            <ServerMonitor>
+            <ServerMonitor statusMsg={statusMsg}>
                 <div className={`fixed inset-0 ${COLORS.TABLE_BG} flex flex-col justify-center items-center text-white`}>
                     <div className="absolute inset-0 pointer-events-none opacity-30 bg-[url('https://www.transparenttextures.com/patterns/felt.png')]"></div>
                     <h2 className="text-3xl font-bold animate-pulse text-yellow-400 mb-4">{statusMsg || TEXT.CONNECTING}</h2>
@@ -398,7 +398,7 @@ function App() {
     // GameLobby (Black Screen) is completely bypassed.
 
     return (
-        <ServerMonitor>
+        <ServerMonitor statusMsg={statusMsg}>
             <div
                 className={`fixed inset-0 ${COLORS.TABLE_BG} overflow-hidden flex justify-center items-center relative select-none font-sans`}
                 style={{ width: dimensions.width, height: dimensions.height }}
