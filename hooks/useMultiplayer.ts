@@ -58,9 +58,16 @@ export const useMultiplayer = ({
         // 根據環境自動選擇伺服器地址
         // 開發環境：localhost:3000
         // 生產環境：需要部署後端伺服器並設定 VITE_SERVER_URL
-        const serverUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000';
+        let serverUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000';
+        
+        // 確保 URL 包含協議，防止被解析為相對路徑
+        if (!serverUrl.startsWith('http://') && !serverUrl.startsWith('https://')) {
+            serverUrl = 'https://' + serverUrl;
+        }
+        
         console.log('=== Socket.IO Configuration ===');
         console.log('Server URL:', serverUrl);
+        console.log('URL is absolute:', serverUrl.startsWith('http'));
         console.log('================================');
         
         const newSocket = io(serverUrl, {
