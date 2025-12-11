@@ -45,6 +45,7 @@ export const useMultiplayer = ({
     // Track current room for logic
     const currentRoomId = useRef<string | null>(null);
     const userIdRef = useRef(userId);
+    const socketInitialized = useRef(false); // 防止重複初始化
 
     // Update ref when prop changes
     useEffect(() => {
@@ -55,6 +56,12 @@ export const useMultiplayer = ({
 
     // --- Init Socket ---
     useEffect(() => {
+        // 防止 React Strict Mode 重複執行
+        if (socketInitialized.current) {
+            console.log('⚠️ Socket already initialized, skipping...');
+            return;
+        }
+        
         // 根據環境自動選擇伺服器地址
         // 開發環境：localhost:3000
         // 生產環境：需要部署後端伺服器並設定 VITE_SERVER_URL
@@ -65,29 +72,33 @@ export const useMultiplayer = ({
             serverUrl = 'https://' + serverUrl;
         }
         
+        // 解析 URL 以確保格式正確
+        try {
+            const url = new URL(serverUrl);
+            serverUrl = url.origin; // 只使用 origin (protocol + host + port)
+        } catch (e) {
+            console.error('Invalid server URL:', serverUrl);
+        }
+        
         console.log('=== Socket.IO Configuration ===');
         console.log('Server URL:', serverUrl);
         console.log('URL is absolute:', serverUrl.startsWith('http'));
         console.log('================================');
         
         const newSocket = io(serverUrl, {
-            // 先嘗試 polling（更穩定），然後升級到 websocket
-            transports: ['polling', 'websocket'],
+            // 只使用 websocket，不降級到 polling
+            transports: ['websocket'],
             reconnection: true,
             reconnectionDelay: 1000,
             reconnectionDelayMax: 5000,
             reconnectionAttempts: 10,
-            timeout: 45000, // 連接超時時間 (增加到 45 秒)
-            // 確保使用完整的伺服器 URL，不要相對路徑
+            timeout: 45000,
             withCredentials: false,
-            // 不要強制新連接，允許重用
-            forceNew: false,
-            // 增加傳輸選項的超時
-            upgrade: true,
-            rememberUpgrade: true,
-            // 關閉自動斷開不活躍連接
-            closeOnBeforeunload: false
+            closeOnBeforeunload: false,
+            forceNew: true
         });
+        
+        socketInitialized.current = true;
         setSocket(newSocket);
 
         newSocket.on('connect', () => {
@@ -142,6 +153,16 @@ export const useMultiplayer = ({
         newSocket.io.engine.on('upgrade', (transport) => {
             console.log('🔄 Transport upgraded to:', transport.name);
         });
+        
+        // 監聽 transport 錯誤
+        newSocket.io.engine.on('error', (error) => {
+            console.error('❌ Transport Error:', error);
+        });
+        
+        // 監聽 transport 關閉
+        newSocket.io.engine.on('close', (reason) => {
+            console.log('🔌 Transport Closed:', reason);
+        });
 
         // --- Global Listeners ---
         newSocket.on('LOBBY_STATS', (stats: Record<string, number>) => {
@@ -179,7 +200,13 @@ export const useMultiplayer = ({
         });
 
         return () => {
-            newSocket.disconnect();
+            console.log('🧹 Cleaning up socket connection...');
+            if (newSocket && newSocket.connected) {
+                newSocket.removeAllListeners();
+                newSocket.disconnect();
+                newSocket.close();
+            }
+            socketInitialized.current = false;
         };
     }, []);
 

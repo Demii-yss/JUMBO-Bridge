@@ -131,9 +131,9 @@ io.on('connection', (socket) => {
 
         const player = { socketId: socket.id, userId: safeUserId, name };
         const result = roomManager.addPlayer(roomId, player);
-        console.log(`[JOIN] ${safeUserId} -> ${roomId}: Success=${result.success} Error=${result.error}`);
-
+        
         if (result.success) {
+            console.log(`✅ [JOIN SUCCESS] ${safeUserId} -> ${roomId}`);
             socket.join(roomId);
 
             const addedPlayer = result.room.players.find(p => p.id === safeUserId);
@@ -150,7 +150,7 @@ io.on('connection', (socket) => {
 
             io.to(roomId).emit('STATE_UPDATE', { state: result.room });
         } else {
-            console.log(`[JOIN REJECT] ${result.error}`);
+            console.log(`❌ [JOIN REJECTED] ${safeUserId} -> ${roomId}: ${result.error}`);
             socket.emit('JOIN_REJECT', { reason: result.error });
         }
     });
