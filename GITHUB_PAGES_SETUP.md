@@ -3,15 +3,19 @@
 ## 🔍 如何檢查 GitHub Pages 設定
 
 ### 步驟 1：訪問 Repository 設定
+
 1. 前往：https://github.com/[您的用戶名]/JUMBO-Bridge
 2. 點擊頂部的 **Settings** 標籤
 
 ### 步驟 2：進入 Pages 設定
+
 1. 在左側選單中找到 **Pages**（在 "Code and automation" 下）
 2. 點擊進入
 
 ### 步驟 3：檢查設定
+
 ✅ **正確設定：**
+
 ```
 Build and deployment
 ├── Source: GitHub Actions  ← 必須是這個！
@@ -19,6 +23,7 @@ Build and deployment
 ```
 
 ❌ **錯誤設定：**
+
 ```
 Build and deployment
 ├── Source: Deploy from a branch  ← 如果是這個，需要改成 GitHub Actions
@@ -26,35 +31,43 @@ Build and deployment
 ```
 
 ### 步驟 4：如何修正
+
 如果是錯誤設定：
+
 1. 點擊 **Source** 下拉選單
 2. 選擇 **GitHub Actions**
 3. 會自動儲存
 
 ### 步驟 5：檢查部署狀態
+
 1. 前往：https://github.com/[您的用戶名]/JUMBO-Bridge/actions
 2. 查看最新的 "Deploy to GitHub Pages" workflow
 3. 確認狀態為綠色勾勾 ✓（成功）
 
 ### 步驟 6：訪問網站
+
 - 您的網站網址：https://[您的用戶名].github.io/JUMBO-Bridge/
 - 等待 2-5 分鐘後嘗試訪問
 
 ## 🛠️ 常見問題排查
 
 ### 問題 1：找不到 Pages 選項
+
 - **原因**：Repository 可能是私有的
 - **解決**：確保 repository 是 Public（或者您有 GitHub Pro）
 
 ### 問題 2：Actions 執行失敗
+
 - **檢查**：前往 Actions 標籤查看錯誤訊息
 - **常見原因**：權限問題、構建錯誤
 
 ### 問題 3：部署成功但網頁顯示 404
+
 - **原因**：base path 設定錯誤
 - **檢查**：vite.config.ts 中的 base 必須是 '/JUMBO-Bridge/'
 
 ### 問題 4：MIME 類型錯誤
+
 - **解決**：
   1. 清除瀏覽器快取（Ctrl + Shift + Delete）
   2. 硬重新整理（Ctrl + Shift + R）

@@ -23,7 +23,7 @@ const io = new Server(server, {
     cors: {
         origin: allowedOrigins,
         methods: ["GET", "POST"],
-        credentials: true,
+        credentials: false,
         allowedHeaders: ["Content-Type"]
     },
     // 確保支持所有傳輸方式
@@ -33,6 +33,8 @@ const io = new Server(server, {
     pingInterval: 25000,
     // 允許升級
     allowUpgrades: true,
+    // 確保正確的路徑
+    path: '/socket.io/',
     // 路徑配置
     path: '/socket.io/'
 });

@@ -69,12 +69,10 @@ export const useMultiplayer = ({
             reconnectionDelayMax: 5000,
             reconnectionAttempts: 10,
             timeout: 20000, // 連接超時時間
-            // 強制使用新連接
-            forceNew: false,
-            // 自動連接
-            autoConnect: true,
-            // 路徑配置（確保與後端匹配）
-            path: '/socket.io/'
+            // 確保使用完整的伺服器 URL，不要相對路徑
+            withCredentials: false,
+            // 不要強制新連接，允許重用
+            forceNew: false
         });
         setSocket(newSocket);
 

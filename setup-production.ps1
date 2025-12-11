@@ -1,7 +1,7 @@
 # 🚀 快速設定腳本 - 完成 Render 部署後執行
 
 param(
-    [Parameter(Mandatory=$true)]
+    [Parameter(Mandatory = $true)]
     [string]$ServerURL
 )
 
@@ -66,7 +66,8 @@ if ($LASTEXITCODE -eq 0) {
             }
         }
     }
-} else {
+}
+else {
     Write-Host "❌ 構建失敗！請檢查錯誤訊息" -ForegroundColor Red
     exit 1
 }
