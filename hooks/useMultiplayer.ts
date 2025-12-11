@@ -55,7 +55,18 @@ export const useMultiplayer = ({
 
     // --- Init Socket ---
     useEffect(() => {
-        const newSocket = io('http://localhost:3000'); // Connect to local server
+        // 根據環境自動選擇伺服器地址
+        // 開發環境：localhost:3000
+        // 生產環境：需要部署後端伺服器並設定 VITE_SERVER_URL
+        const serverUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000';
+        console.log('Connecting to server:', serverUrl);
+        
+        const newSocket = io(serverUrl, {
+            transports: ['websocket', 'polling'], // 嘗試多種傳輸方式
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionAttempts: 5
+        });
         setSocket(newSocket);
 
         newSocket.on('connect', () => {

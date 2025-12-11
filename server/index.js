@@ -135,7 +135,9 @@ io.on('connection', (socket) => {
 
 });
 
-const PORT = 3000;
+// 支持環境變數配置端口（用於雲端部署）
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Server running on port ${PORT}`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });
