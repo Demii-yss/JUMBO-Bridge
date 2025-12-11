@@ -85,6 +85,29 @@ export const useMultiplayer = ({
         console.log('URL is absolute:', serverUrl.startsWith('http'));
         console.log('================================');
         
+        // 猴子補丁：攔截所有 XMLHttpRequest 請求，阻止向 github.io 發送請求
+        const OriginalXHR = window.XMLHttpRequest;
+        const ProxiedXHR = function(this: XMLHttpRequest) {
+            const xhr = new OriginalXHR();
+            const originalOpen = xhr.open.bind(xhr);
+            
+            xhr.open = function(method: string, url: string | URL, ...args: any[]) {
+                const urlString = url.toString();
+                // 如果請求不是指向我們的後端服務器，則阻止它
+                if (!urlString.includes('jumbo-bridge-server.onrender.com') && 
+                    !urlString.includes('localhost')) {
+                    console.warn('🚫 Blocked XHR request to:', urlString);
+                    return;
+                }
+                return originalOpen(method, url, ...args);
+            };
+            
+            return xhr;
+        } as any;
+        
+        ProxiedXHR.prototype = OriginalXHR.prototype;
+        window.XMLHttpRequest = ProxiedXHR as any;
+        
         const newSocket = io(serverUrl, {
             // 只使用 websocket，不降級到 polling
             transports: ['websocket'],
@@ -95,7 +118,16 @@ export const useMultiplayer = ({
             timeout: 45000,
             withCredentials: false,
             closeOnBeforeunload: false,
-            forceNew: true
+            forceNew: true,
+            // 禁用所有可能的健康檢查
+            query: {
+                // 添加自定義參數確保使用完整 URL
+                t: Date.now().toString()
+            },
+            // 強制使用提供的 URL，不做域名解析
+            autoConnect: true,
+            // 不嘗試從當前域名推斷路徑
+            path: '/socket.io/'
         });
         
         socketInitialized.current = true;
