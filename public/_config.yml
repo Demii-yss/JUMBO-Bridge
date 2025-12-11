@@ -1,0 +1,5 @@
+# GitHub Pages 配置
+# 明確禁用 Jekyll 處理
+include:
+  - .nojekyll
+  - _*
