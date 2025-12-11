@@ -28,15 +28,19 @@ const io = new Server(server, {
     },
     // 確保支持所有傳輸方式
     transports: ['polling', 'websocket'],
-    // 增加連接超時
-    pingTimeout: 60000,
-    pingInterval: 25000,
+    // 大幅增加超時時間以適應雲端環境和網路延遲
+    pingTimeout: 120000,  // 2 分鐘 (從 60 秒增加)
+    pingInterval: 15000,  // 15 秒 (從 25 秒減少，更頻繁的心跳)
     // 允許升級
     allowUpgrades: true,
     // 確保正確的路徑
     path: '/socket.io/',
-    // 路徑配置
-    path: '/socket.io/'
+    // 增加連接超時
+    connectTimeout: 45000,
+    // 增加最大 HTTP 緩衝區大小
+    maxHttpBufferSize: 1e6,
+    // 允許 EIO3 (Engine.IO v3) 以獲得更好的兼容性
+    allowEIO3: true
 });
 
 // 2. Session Management (Single Session & Reconnect)

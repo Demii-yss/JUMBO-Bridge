@@ -59,7 +59,9 @@ export const useMultiplayer = ({
         // 開發環境：localhost:3000
         // 生產環境：需要部署後端伺服器並設定 VITE_SERVER_URL
         const serverUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000';
-        console.log('Connecting to server:', serverUrl);
+        console.log('=== Socket.IO Configuration ===');
+        console.log('Server URL:', serverUrl);
+        console.log('================================');
         
         const newSocket = io(serverUrl, {
             // 先嘗試 polling（更穩定），然後升級到 websocket
@@ -68,11 +70,16 @@ export const useMultiplayer = ({
             reconnectionDelay: 1000,
             reconnectionDelayMax: 5000,
             reconnectionAttempts: 10,
-            timeout: 20000, // 連接超時時間
+            timeout: 45000, // 連接超時時間 (增加到 45 秒)
             // 確保使用完整的伺服器 URL，不要相對路徑
             withCredentials: false,
             // 不要強制新連接，允許重用
-            forceNew: false
+            forceNew: false,
+            // 增加傳輸選項的超時
+            upgrade: true,
+            rememberUpgrade: true,
+            // 關閉自動斷開不活躍連接
+            closeOnBeforeunload: false
         });
         setSocket(newSocket);
 
