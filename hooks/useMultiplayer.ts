@@ -62,10 +62,19 @@ export const useMultiplayer = ({
         console.log('Connecting to server:', serverUrl);
         
         const newSocket = io(serverUrl, {
-            transports: ['websocket', 'polling'], // 嘗試多種傳輸方式
+            // 先嘗試 polling（更穩定），然後升級到 websocket
+            transports: ['polling', 'websocket'],
             reconnection: true,
             reconnectionDelay: 1000,
-            reconnectionAttempts: 5
+            reconnectionDelayMax: 5000,
+            reconnectionAttempts: 10,
+            timeout: 20000, // 連接超時時間
+            // 強制使用新連接
+            forceNew: false,
+            // 自動連接
+            autoConnect: true,
+            // 路徑配置（確保與後端匹配）
+            path: '/socket.io/'
         });
         setSocket(newSocket);
 

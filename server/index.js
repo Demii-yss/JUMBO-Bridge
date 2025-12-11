@@ -23,15 +23,25 @@ const io = new Server(server, {
     cors: {
         origin: allowedOrigins,
         methods: ["GET", "POST"],
-        credentials: true
-    }
+        credentials: true,
+        allowedHeaders: ["Content-Type"]
+    },
+    // 確保支持所有傳輸方式
+    transports: ['polling', 'websocket'],
+    // 增加連接超時
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    // 允許升級
+    allowUpgrades: true,
+    // 路徑配置
+    path: '/socket.io/'
 });
 
 // 2. Session Management (Single Session & Reconnect)
 const userSessions = new Map(); // Global Map<userId, socketId>
 
 io.on('connection', (socket) => {
-    console.log('User connected:', socket.id);
+    console.log(`[CONNECT] User connected: ${socket.id}, Transport: ${socket.conn.transport.name}`);
 
     // 1. Lobby Stats Probe
     socket.on('QUERY_LOBBY_STATS', () => {
@@ -69,7 +79,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('disconnect', () => {
+    socket.on('disconnect', (reason) => {
         // Clean up userSessions map
         for (const [uid, sid] of userSessions.entries()) {
             if (sid === socket.id) {
@@ -78,7 +88,7 @@ io.on('connection', (socket) => {
             }
         }
 
-        console.log('User disconnected:', socket.id);
+        console.log(`[DISCONNECT] User disconnected: ${socket.id}, Reason: ${reason}`);
         const result = roomManager.handleDisconnect(socket.id);
         if (result) {
             io.to(result.roomId).emit('STATE_UPDATE', { state: result.room });
