@@ -80,19 +80,32 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', (reason) => {
+        console.log('❌ User disconnected:', socket.id);
+        console.log('   Reason:', reason);
+        console.log('   Transport was:', socket.conn.transport.name);
+        
         // Clean up userSessions map
         for (const [uid, sid] of userSessions.entries()) {
             if (sid === socket.id) {
+                console.log('   User ID:', uid);
                 userSessions.delete(uid);
                 break;
             }
         }
-
-        console.log(`[DISCONNECT] User disconnected: ${socket.id}, Reason: ${reason}`);
         const result = roomManager.handleDisconnect(socket.id);
         if (result) {
             io.to(result.roomId).emit('STATE_UPDATE', { state: result.room });
         }
+    });
+
+    // 監聽連接錯誤
+    socket.on('error', (error) => {
+        console.error('⚠️ Socket error:', socket.id, error);
+    });
+
+    // 監聽傳輸升級
+    socket.conn.on('upgrade', (transport) => {
+        console.log('🔄 Transport upgraded to:', transport.name, 'for', socket.id);
     });
 
     // 3. Join Room

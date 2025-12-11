@@ -79,7 +79,8 @@ export const useMultiplayer = ({
         setSocket(newSocket);
 
         newSocket.on('connect', () => {
-            console.log('Socket Connected:', newSocket.id);
+            console.log('✅ Socket Connected:', newSocket.id);
+            console.log('   Transport:', newSocket.io.engine.transport.name);
             setStatusMsg('Connected to Server');
             // If we have ID already (re-mount?), register.
             if (userIdRef.current) {
@@ -113,9 +114,21 @@ export const useMultiplayer = ({
             }
         });
 
-        newSocket.on('disconnect', () => {
-            console.log('Socket Disconnected');
+        newSocket.on('disconnect', (reason) => {
+            console.log('❌ Socket Disconnected');
+            console.log('   Reason:', reason);
             setStatusMsg('Disconnected from Server');
+        });
+
+        // 監聽連接錯誤
+        newSocket.on('connect_error', (error) => {
+            console.error('⚠️ Connection Error:', error.message);
+            setStatusMsg('Connection Error: ' + error.message);
+        });
+
+        // 監聽傳輸升級
+        newSocket.io.engine.on('upgrade', (transport) => {
+            console.log('🔄 Transport upgraded to:', transport.name);
         });
 
         // --- Global Listeners ---
