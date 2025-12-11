@@ -403,10 +403,10 @@ function App() {
                 className={`fixed inset-0 ${COLORS.TABLE_BG} overflow-hidden flex justify-center items-center relative select-none font-sans`}
                 style={{ width: dimensions.width, height: dimensions.height }}
             >
-                {/* Exit Room Button (Visual Adjustment for Green Table) */}
-                {gameState.phase !== GamePhase.Playing && gameState.phase !== GamePhase.Bidding && gameState.phase !== GamePhase.Reviewing && (
+                {/* Exit Room Button (Visual Adjustment - Centered and Lower) */}
+                {gameState.phase !== GamePhase.Playing && gameState.phase !== GamePhase.Bidding && gameState.phase !== GamePhase.Reviewing && (!showResults) && (
                     <button
-                        className="fixed top-4 left-4 z-[200] bg-red-800/60 hover:bg-red-700/80 text-white px-4 py-2 rounded shadow font-bold text-sm backdrop-blur-sm border border-red-500/30 transition-all"
+                        className="fixed top-[60%] left-1/2 transform -translate-x-1/2 z-[200] bg-red-800/80 hover:bg-red-700 text-white px-8 py-4 rounded shadow-lg font-bold text-3xl backdrop-blur-sm border border-red-500/30 transition-all"
                         onClick={handleExitRoom}
                     >
                         {TEXT.EXIT_ROOM}
@@ -535,7 +535,7 @@ function App() {
 
                     {/* Start/Ready System (Lobby/Finished) */}
                     {((gameState.phase === GamePhase.Idle || gameState.phase === GamePhase.Lobby || gameState.phase === GamePhase.Finished) && !showResults) && (
-                        <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[100]">
+                        <div className="z-[100]">
                             {/* Host: Start Game */}
                             {isHost ? (
                                 <button
@@ -547,26 +547,27 @@ function App() {
                                     // const distinctReady = new Set(gameState.readyPlayers);
                                     // const allReady = nonHosts.every(p => distinctReady.has(p.position));
                                     // Let's rely on simple count for now if Host doesn't use Ready button. User said "Host doesn't have ready button".
-                                    className={`${COLORS.BTN_PRIMARY} ${(gameState.players.length < 4 || gameState.readyPlayers.length < 3) ? COLORS.BTN_DISABLED : ''} px-8 py-4 rounded shadow-lg font-bold text-3xl transition-all`}
+                                    style={isPortrait ? { transform: 'translate(-50%, -50%) scale(0.7)', top: '40%' } : {}}
+                                    className={`${COLORS.BTN_PRIMARY} ${(gameState.players.length < 4 || gameState.readyPlayers.length < 3) ? COLORS.BTN_DISABLED : ''} px-8 py-4 rounded shadow-lg font-bold text-3xl transition-all fixed left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2`}
                                 >
                                     {TEXT.DEAL_CARDS} {/* Reuse Text or "Start Game" */}
-                                    {(gameState.players.length < 4) && (
+                                    {/* Hide Wait Text in Portrait Mode per request */}
+                                    {(!isPortrait && gameState.players.length < 4) && (
                                         <div className="text-sm font-normal mt-1 opacity-80">({TEXT.LOBBY_WAIT_PLAYERS})</div>
                                     )}
-                                    {(gameState.players.length === 4 && gameState.readyPlayers.length < 3) && (
-                                        <div className="text-sm font-normal mt-1 opacity-80">({gameState.readyPlayers.length}/{3} {TEXT.PLAYERS_READY})</div>
-                                    )}
+
                                 </button>
                             ) : (
                                 /* Non-Host: Ready Toggle */
                                 <button
                                     onClick={() => sendAction({ type: NetworkActionType.READY, position: myPosition! } as any)}
-                                    className={`px-8 py-4 rounded shadow-lg font-bold text-3xl transition-all ${gameState.readyPlayers.includes(myPosition!)
+                                    style={isPortrait ? { transform: 'translate(-50%, -50%) scale(0.7)', top: '40%' } : {}}
+                                    className={`px-8 py-4 rounded shadow-lg font-bold text-3xl transition-all fixed left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 ${gameState.readyPlayers.includes(myPosition!)
                                         ? 'bg-green-600 hover:bg-green-500 text-white scan-line-active' // Ready Style
                                         : 'bg-gray-600 hover:bg-gray-500 text-white animate-pulse' // Not Ready Style
                                         }`}
                                 >
-                                    {gameState.readyPlayers.includes(myPosition!) ? TEXT.READY_EXCLAMATION : TEXT.CLICK_TO_READY}
+                                    {gameState.readyPlayers.includes(myPosition!) ? TEXT.READY_EXCLAMATION : TEXT.READY}
                                 </button>
                             )}
                         </div>
@@ -691,8 +692,8 @@ function App() {
                         isMyTurnToPlay={isMyTurnToPlay}
                         sendAction={sendAction}
                         getRelativeSlot={getRelativeSlot}
-                        onAddBot={addBot}
-                        onRemoveBot={removeBot}
+                        onAddBot={(gameState.phase === GamePhase.Lobby || gameState.phase === GamePhase.Idle || gameState.phase === GamePhase.Finished) ? addBot : undefined}
+                        onRemoveBot={(gameState.phase === GamePhase.Lobby || gameState.phase === GamePhase.Idle || gameState.phase === GamePhase.Finished) ? removeBot : undefined}
                         isHost={isHost}
                     />
 

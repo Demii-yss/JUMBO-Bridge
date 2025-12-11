@@ -61,7 +61,7 @@ const GameTable: React.FC<GameTableProps> = memo(({
 
                     // Render "Waiting..." or "Add Bot" Placeholder
                     let style: React.CSSProperties = {};
-                    if (slot === 'top') style = { top: '20%', left: '50%', transform: 'translate(-50%, -50%)' };
+                    if (slot === 'top') style = { top: '0', left: '50%', transform: 'translate(-50%, 0)', paddingTop: '1vmin' };
                     if (slot === 'left') style = { top: '50%', left: '20%', transform: 'translate(-50%, -50%)' };
                     if (slot === 'right') style = { top: '50%', right: '20%', transform: 'translate(50%, -50%)' };
 
@@ -127,23 +127,30 @@ const GameTable: React.FC<GameTableProps> = memo(({
 
                 if (slot === 'bottom') {
                     return (
-                        <div key={pos} className="absolute bottom-0 left-0 w-full flex flex-col items-center justify-end pb-0 pointer-events-none z-40">
-                            <div className="mb-1 pointer-events-auto">{badge}</div>
-                            <div className={`pointer-events-auto relative w-full flex justify-center ${isPortrait ? 'scale-[1.0] origin-bottom mb-0' : ''}`}>
-                                <PlayerHand
-                                    cards={gameState.hands[pos]}
-                                    position={pos}
-                                    isFaceUp={true}
-                                    vertical={false}
-                                    currentTrick={gameState.currentTrick}
-                                    isMyTurn={isMyTurnToPlay}
-                                    trumpSuit={gameState.contract?.suit}
-                                    onPlayCard={(card) => sendAction({ type: NetworkActionType.PLAY, card, position: pos } as any)}
-                                    scale={isPortrait ? 1.0 : 1}
-                                    interactive={true}
-                                />
+                        <React.Fragment key={pos}>
+                            {/* 1. Badge Container - Moved to Bottom Right in Landscape */}
+                            <div className={`absolute z-40 pointer-events-none ${isPortrait ? 'bottom-0 left-0 w-full flex justify-center items-end pb-0' : 'bottom-[2vmin] right-[2vmin] flex flex-col items-end'}`}>
+                                <div className="mb-1 pointer-events-auto">{badge}</div>
                             </div>
-                        </div>
+
+                            {/* 2. Hand Container (Always Centered Bottom) */}
+                            <div className={`absolute bottom-0 left-0 w-full flex justify-center z-40 pointer-events-none`}>
+                                <div className={`pointer-events-auto relative w-full flex justify-center ${isPortrait ? 'scale-[1.0] origin-bottom mb-0' : ''}`}>
+                                    <PlayerHand
+                                        cards={gameState.hands[pos]}
+                                        position={pos}
+                                        isFaceUp={true}
+                                        vertical={false}
+                                        currentTrick={gameState.currentTrick}
+                                        isMyTurn={isMyTurnToPlay}
+                                        trumpSuit={gameState.contract?.suit}
+                                        onPlayCard={(card) => sendAction({ type: NetworkActionType.PLAY, card, position: pos } as any)}
+                                        scale={isPortrait ? 1.0 : 1}
+                                        interactive={true}
+                                    />
+                                </div>
+                            </div>
+                        </React.Fragment>
                     );
                 }
 
@@ -152,7 +159,7 @@ const GameTable: React.FC<GameTableProps> = memo(({
                         <div key={pos} className="absolute top-0 left-0 w-full flex justify-center items-start pt-4 pointer-events-none z-30">
                             {/* Wrapper to align Badge and Hand relative to each other */}
                             <div className="relative pointer-events-auto mt-4">
-                                <div className="absolute top-[8vmin] left-1/2 -translate-x-1/2 z-40 pointer-events-auto">
+                                <div className="absolute top-0 left-1/2 -translate-x-1/2 z-40 pointer-events-auto mt-[1vmin]">
                                     {badge}
                                 </div>
                                 <div className="relative z-30">
@@ -171,22 +178,24 @@ const GameTable: React.FC<GameTableProps> = memo(({
                 }
 
                 if (slot === 'left') {
-                    if (isPortrait) {
-                        return (
-                            <div key={pos} className="absolute left-0 top-0 h-full w-20 z-30 pointer-events-none">
-                                <div className="absolute top-[40%] left-1 pointer-events-auto">{badge}</div>
-                            </div>
-                        );
-                    }
+                    // Unified Logic: Always Vertical (Rotated)
+                    // Centering: origin-center, centered in the slot
                     return (
-                        <div key={pos} className="absolute left-0 top-0 h-full w-20 flex flex-col justify-center items-start pl-2 pointer-events-none z-30">
-                            <div className="relative pointer-events-auto">
-                                <div className="absolute top-1/2 left-0 -translate-y-1/2 z-40">
+                        <div key={pos} className="absolute left-0 top-0 h-full w-20 flex flex-col justify-center items-center pointer-events-none z-30">
+                            <div className="relative pointer-events-auto w-0 h-0 flex items-center justify-center">
+                                {/* Badge Center Point */}
+                                <div className="absolute z-40 rotate-90 origin-center whitespace-nowrap flex justify-center items-center">
                                     {badge}
                                 </div>
-                                <div className="relative z-30 pl-4 py-8">
+                                <div className="absolute pl-4 py-8 z-30">
+                                    {/* Hand Offset (Left of Badge? No, Hand is vertical) */}
+                                    {/* Note: Original had separate hand rendering logic. */}
+                                    {/* If Hand is vertical, it needs to be positioned correctly relative to the new centered badge or slot. */}
+                                    {/* Original: `pl-4` relative to slot. */}
                                     {!isPortrait && (
-                                        <PlayerHand cards={gameState.hands[pos]} position={pos} isFaceUp={false} vertical={true} />
+                                        <div className="translate-x-8"> {/* Push hand slightly right */}
+                                            <PlayerHand cards={gameState.hands[pos]} position={pos} isFaceUp={false} vertical={true} />
+                                        </div>
                                     )}
                                 </div>
                             </div>
@@ -195,22 +204,19 @@ const GameTable: React.FC<GameTableProps> = memo(({
                 }
 
                 if (slot === 'right') {
-                    if (isPortrait) {
-                        return (
-                            <div key={pos} className="absolute right-0 top-0 h-full w-20 z-30 pointer-events-none">
-                                <div className="absolute top-[40%] right-1 pointer-events-auto">{badge}</div>
-                            </div>
-                        );
-                    }
+                    // Unified Logic: Always Vertical (Rotated)
                     return (
-                        <div key={pos} className="absolute right-0 top-0 h-full w-20 flex flex-col justify-center items-end pr-2 pointer-events-none z-30">
-                            <div className="relative pointer-events-auto">
-                                <div className="absolute top-1/2 right-0 -translate-y-1/2 z-40">
+                        <div key={pos} className="absolute right-0 top-0 h-full w-20 flex flex-col justify-center items-center pointer-events-none z-30">
+                            <div className="relative pointer-events-auto w-0 h-0 flex items-center justify-center">
+                                {/* Badge Center Point */}
+                                <div className="absolute z-40 -rotate-90 origin-center whitespace-nowrap flex justify-center items-center">
                                     {badge}
                                 </div>
-                                <div className="relative z-30 pr-4 py-8">
+                                <div className="absolute pr-4 py-8 z-30">
                                     {!isPortrait && (
-                                        <PlayerHand cards={gameState.hands[pos]} position={pos} isFaceUp={false} vertical={true} />
+                                        <div className="-translate-x-8">
+                                            <PlayerHand cards={gameState.hands[pos]} position={pos} isFaceUp={false} vertical={true} />
+                                        </div>
                                     )}
                                 </div>
                             </div>

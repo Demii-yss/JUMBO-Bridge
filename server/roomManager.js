@@ -76,6 +76,18 @@ class RoomManager {
         // If no connected humans, start timer
         const connectedHumans = room.players.filter(p => !p.isBot && p.connected).length;
         if (connectedHumans === 0 && room.players.length > 0) {
+            // NEW: Immediate cleanup if in Lobby/Idle (No humans = reset bots immediately)
+            if (room.phase === 'Lobby' || room.phase === 'Idle') {
+                console.log(`[ROOM] ${roomId} has no humans (Lobby/Idle). Immediate Reset.`);
+                this.rooms.set(roomId, JSON.parse(JSON.stringify(INITIAL_GAME_STATE)));
+                // Clear any existing timer
+                if (this.cleanupTimers.has(roomId)) {
+                    clearTimeout(this.cleanupTimers.get(roomId));
+                    this.cleanupTimers.delete(roomId);
+                }
+                return;
+            }
+
             if (!this.cleanupTimers.has(roomId)) {
                 console.log(`[ROOM] ${roomId} is empty/disconnected. Starting 60s Cleanup Timer.`);
                 const timer = setTimeout(() => {
@@ -83,7 +95,7 @@ class RoomManager {
                     this.rooms.set(roomId, JSON.parse(JSON.stringify(INITIAL_GAME_STATE)));
                     this.cleanupTimers.delete(roomId);
                     // Emit update? Server loop handles state updates usually.
-                }, 10000);
+                }, 60000); // 60s
                 this.cleanupTimers.set(roomId, timer);
             }
         } else {

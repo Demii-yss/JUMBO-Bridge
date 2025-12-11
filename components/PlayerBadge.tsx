@@ -76,6 +76,19 @@ const PlayerBadge: React.FC<PlayerBadgeProps> = ({
     // Ready Status Indicator (GamePhase.Lobby or Finished)
     const showReadyStatus = (gamePhase === GamePhase.Lobby || gamePhase === GamePhase.Finished) && profile && profile.connected !== false;
 
+    // Counter-Rotation for Tricks Won AND Emotes (to fix orientation when badge is rotated)
+    let tricksRotationClass = '';
+    let emoteRotationClass = '';
+
+    if (slot === 'left') {
+        tricksRotationClass = '-rotate-90';
+        emoteRotationClass = '-rotate-90';
+    }
+    if (slot === 'right') {
+        tricksRotationClass = 'rotate-90';
+        emoteRotationClass = 'rotate-90';
+    }
+
     return (
         <div className={badgeClass} onClick={(e) => {
             if (showInteractionHighlight && profile) {
@@ -92,28 +105,28 @@ const PlayerBadge: React.FC<PlayerBadgeProps> = ({
 
             {/* Ready Status Badge */}
             {showReadyStatus && (
-                <div className={`absolute ${isSideBadge ? 'bottom-full mb-2' : 'left-full ml-3'} flex items-center justify-center`}>
+                <div className={`absolute ${isSideBadge || (slot === 'bottom' && !isPortrait) ? 'bottom-full mb-2' : 'left-full ml-3'} flex items-center justify-center`}>
                     {profile?.isHost ? (
                         <div className="px-3 py-1 rounded-full font-bold text-sm shadow-md border-2 border-white bg-amber-500 text-black">
                             👑 HOST
                         </div>
                     ) : (
                         <div className={`px-3 py-1 rounded-full font-bold text-sm shadow-md border-2 border-white ${isReady ? 'bg-green-600 text-white' : 'bg-gray-600/80 text-gray-200'}`}>
-                            {isReady ? '✓ READY' : '✕ WAITING'}
+                            {isReady ? 'READY' : 'WAITING'}
                         </div>
                     )}
                 </div>
             )}
 
             {tricksWon > 0 && gamePhase === GamePhase.Playing && (
-                <div className={`bg-yellow-500 text-black font-bold w-[4vmin] h-[4vmin] rounded-full flex items-center justify-center border-2 border-white shadow-lg text-[2vmin] ${isSideBadge ? 'mt-1' : 'ml-3'}`}>
+                <div className={`bg-yellow-500 text-black font-bold w-[4vmin] h-[4vmin] rounded-full flex items-center justify-center border-2 border-white shadow-lg text-[2vmin] ${isSideBadge ? 'mt-1' : 'ml-3'} ${tricksRotationClass}`}>
                     {tricksWon}
                 </div>
             )}
 
 
             {activeEmote && (
-                <div className={`absolute left-1/2 -translate-x-1/2 z-50 visible flex flex-col items-center ${emotePositionClass}`}>
+                <div className={`absolute left-1/2 -translate-x-1/2 z-50 visible flex flex-col items-center ${emotePositionClass} ${emoteRotationClass}`}>
                     <div className="bg-white rounded-2xl p-2 shadow-2xl border-4 border-blue-500 animate-bounce aspect-square w-[80px] h-[80px] flex items-center justify-center relative">
                         <img src={ASSETS.EMOTES[activeEmote]} className="w-full h-full object-contain" alt="emote" />
                         <div className={`absolute left-1/2 -translate-x-1/2 border-l-8 border-r-8 border-transparent ${arrowPositionClass}`}></div>

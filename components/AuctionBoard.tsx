@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Bid, PlayerPosition } from '../types';
 import { TEXT, PLAYER_LABELS } from '../constants';
-import { SUIT_COLORS, SUIT_SYMBOLS } from '../colors';
+import { SUIT_COLORS, SUIT_SYMBOLS, COLORS } from '../colors';
 
 interface AuctionBoardProps {
   history: Bid[];
@@ -46,18 +46,18 @@ const AuctionBoard: React.FC<AuctionBoardProps> = ({ history, dealer, myPosition
   };
 
   // Portrait: 28vh
-  // Landscape: 400px (Standard)
-  const heightClass = isPortrait ? 'h-[28vh]' : 'h-[400px]';
+  // Landscape: 320px (80% of previous 400px)
+  const heightClass = isPortrait ? 'h-[28vh]' : 'h-[320px]';
 
   return (
     // Width adjusted to fit side-by-side with BiddingBox, Height dynamic
-    <div className={`bg-white/95 rounded-xl shadow-2xl border-4 border-yellow-600 p-2 w-[400px] ${heightClass} flex flex-col pointer-events-auto transition-all duration-300`}>
+    <div className={`bg-white/95 rounded-xl shadow-2xl border-4 border-yellow-600 p-2 ${isPortrait ? 'w-[90vw] max-w-[400px]' : 'w-[300px]'} ${heightClass} flex flex-col pointer-events-auto transition-all duration-300`}>
       <div className="grid grid-cols-4 gap-1 mb-2 border-b-2 border-gray-300 pb-1 text-center font-bold text-gray-800 text-2xl">
-        {[0, 1, 2, 3].map(i => (
+        {positions.map((_, i) => (
           <div key={i}>{getArrowForColumn(i)}</div>
         ))}
       </div>
-      <div ref={scrollRef} className="overflow-y-auto scrollbar-hide flex-1">
+      <div ref={scrollRef} className="overflow-y-auto scrollbar-hide flex-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
         <div className="grid grid-cols-4 gap-2 text-center text-2xl">
           {cells.map((bid, i) => (
             <div key={i} className="h-12 flex items-center justify-center rounded bg-gray-50 border border-gray-200 shadow-sm">

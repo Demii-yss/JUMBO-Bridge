@@ -38,14 +38,14 @@ const BiddingBox: React.FC<BiddingBoxProps> = ({ onBid, history, player, disable
 
   const containerClass = `
     ${COLORS.PANEL_BG} p-3 rounded-xl shadow-2xl border-2 border-stone-600 
-    w-[400px] pointer-events-auto transition-opacity duration-300
+    ${isPortrait ? 'w-[90vw] max-w-[400px]' : 'w-[400px]'} pointer-events-auto transition-opacity duration-300
     ${disabled ? 'opacity-60 grayscale' : 'opacity-100'}
-    ${isPortrait ? 'h-[30vh] overflow-y-auto' : ''}
+    ${isPortrait ? 'h-[30vh] overflow-y-auto' : 'h-[320px] overflow-y-auto'}
   `;
 
   return (
     // Fixed width to sit nicely next to board
-    <div className={containerClass}>
+    <div className={containerClass} style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
       {/* Pass Button */}
       <div className="mb-3">
         <button

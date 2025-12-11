@@ -65,13 +65,18 @@ export const useBotLogic = ({ gameState, isHost, myPosition, sendAction }: UseBo
 
         // --- 1. Delay Logic ---
         let delay = 0;
-        if (botTurnState.current.turn !== botPosition) {
+
+        // Detect if we are leading a NEW trick (or just switched turn)
+        // If leading (trick empty), ALWAYS force a new high delay, ignoring previous cache
+        const isLeading = gameState.phase === GamePhase.Playing && gameState.currentTrick.length === 0;
+
+        if (botTurnState.current.turn !== botPosition || isLeading) {
             let minDelay = 1000;
             let maxDelay = 2500;
-            // Rule: Leading -> 2.5s - 4.0s
-            if (gameState.phase === GamePhase.Playing && gameState.currentTrick.length === 0) {
+            // Rule: Leading -> 2.5s - 5.0s (Updated per request)
+            if (isLeading) {
                 minDelay = 2500;
-                maxDelay = 4000;
+                maxDelay = 5000; // Increased to 5s
             }
             delay = Math.floor(Math.random() * (maxDelay - minDelay + 1)) + minDelay;
             botTurnState.current = { turn: botPosition, targetTime: Date.now() + delay };

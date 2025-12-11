@@ -128,7 +128,7 @@ const InteractionOverlay: React.FC<InteractionOverlayProps> = memo(({
                 </div>
             )}
 
-            <div className={`absolute z-[60] flex gap-4 pointer-events-auto ${isPortrait ? 'top-[2vmin] left-[2vmin] flex-row' : 'bottom-[2vmin] right-[2vmin] flex-row'}`}>
+            <div className={`absolute z-[60] flex gap-4 pointer-events-auto top-[2vmin] left-[2vmin] flex-row`}>
                 {/* Blue Frame - Emotes */}
                 <div className="relative">
                     <button
@@ -142,7 +142,7 @@ const InteractionOverlay: React.FC<InteractionOverlayProps> = memo(({
                         <img src={ASSETS.EMOTES['😀']} className="w-10 h-10 object-contain" alt="emote" />
                     </button>
                     {showEmotePicker && (
-                        <div className={`absolute ${isPortrait ? 'top-full mt-2 left-0' : 'bottom-20 right-0'} bg-white p-2 rounded-xl shadow-2xl grid grid-cols-3 gap-2 w-64 border-4 border-blue-600 animate-fade-in-up z-50`}>
+                        <div className={`absolute top-full mt-2 left-0 bg-white p-2 rounded-xl shadow-2xl grid grid-cols-3 gap-2 w-64 border-4 border-blue-600 animate-fade-in-up z-50`}>
                             {Object.keys(ASSETS.EMOTES).map(emoji => (
                                 <button key={emoji} onClick={() => handleEmote(emoji)} className="p-2 hover:bg-gray-100 rounded flex justify-center">
                                     <img src={ASSETS.EMOTES[emoji]} className="w-12 h-12 object-contain" alt={emoji} />
@@ -165,7 +165,7 @@ const InteractionOverlay: React.FC<InteractionOverlayProps> = memo(({
                         <img src={ASSETS.INTERACTIONS[activeInteractionType]} className="w-10 h-10 object-contain pointer-events-none" alt="gift" />
                     </div>
                     {showItemPicker && !selectedItemType && (
-                        <div className={`absolute ${isPortrait ? 'top-full mt-2 left-0' : 'bottom-20 right-0'} bg-white p-2 rounded-xl shadow-2xl flex flex-col gap-2 w-48 border-4 border-red-600 animate-fade-in-up z-50`}>
+                        <div className={`absolute top-full mt-2 left-0 bg-white p-2 rounded-xl shadow-2xl flex flex-col gap-2 w-48 border-4 border-red-600 animate-fade-in-up z-50`}>
                             <button onClick={() => { setActiveInteractionType('EGG'); setSelectedItemType('EGG'); setShowItemPicker(false); }} className="p-2 hover:bg-gray-100 rounded flex items-center gap-4">
                                 <img src={ASSETS.INTERACTIONS['EGG']} className="w-12 h-12" alt="egg" />
                                 <span className="text-lg font-bold text-black">{TEXT.EGG}</span>
@@ -177,7 +177,7 @@ const InteractionOverlay: React.FC<InteractionOverlayProps> = memo(({
                         </div>
                     )}
                     {selectedItemType && (
-                        <div className={`absolute ${isPortrait ? 'top-full mt-2 left-0' : 'bottom-20 right-0'} bg-black/80 text-white p-2 rounded-lg whitespace-nowrap font-bold text-lg`}>
+                        <div className={`absolute top-full mt-2 left-0 bg-black/80 text-white p-2 rounded-lg whitespace-nowrap font-bold text-lg`}>
                             {TEXT.CLICK_PLAYER_TO_SEND}
                         </div>
                     )}
