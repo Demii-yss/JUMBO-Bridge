@@ -6,10 +6,24 @@ import roomManager from './roomManager.js';
 
 const app = express();
 const server = createServer(app);
+
+// CORS 配置：允許本地開發和 GitHub Pages
+const allowedOrigins = [
+    "http://localhost:3001",              // 本地開發
+    "http://localhost:3000",              // 本地開發（備用）
+    /^https:\/\/.*\.github\.io$/,         // 所有 GitHub Pages
+];
+
+// 如果在開發環境，允許所有來源
+if (process.env.NODE_ENV !== 'production') {
+    allowedOrigins.push("*");
+}
+
 const io = new Server(server, {
     cors: {
-        origin: "*",
-        methods: ["GET", "POST"]
+        origin: allowedOrigins,
+        methods: ["GET", "POST"],
+        credentials: true
     }
 });
 
